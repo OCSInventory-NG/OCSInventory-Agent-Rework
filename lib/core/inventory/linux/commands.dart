@@ -2,7 +2,6 @@ import 'dart:io';
 
 /// Class for execute command on linux.
 class LinuxCommand {
-
   /// Execute [commandLine] to Shell.
   Future<String> commandShell(String commandLine) async {
     List<String> args = commandLine.split(" ");

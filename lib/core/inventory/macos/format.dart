@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:ocs_agent/core/inventory/macos/commands.dart';
 
-class MacOSFormat{
+class MacOSFormat {
   MacOSCommand macosCommand;
 
   MacOSFormat() {
@@ -21,7 +21,7 @@ class MacOSFormat{
     return null;
   }
 
-  Map<String, dynamic> FormatJson(String txt){
+  Map<String, dynamic> formatJson(String txt) {
     String json = "{\n";
 
     var list = txt.split("\n");
@@ -46,10 +46,9 @@ class MacOSFormat{
         }
       }
       n++;
-
     });
     json += "}";
-    
+
     return jsonDecode(json);
   }
 }

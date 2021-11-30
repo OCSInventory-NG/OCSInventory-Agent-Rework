@@ -12,7 +12,7 @@ class LinuxFormat{
   }
 
   /// get array [indexString] of [command] by [type].
-  Future<String> getbyArray(String command, String indexString, String type) async {
+  Future<void> getbyArray(String command, String indexString, String type) async {
     String result;
     int index = int.parse(indexString);
 

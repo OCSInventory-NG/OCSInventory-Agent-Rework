@@ -16,24 +16,21 @@ import 'json_utils.dart';
 import 'package:http/http.dart' as http;
 
 /// This class communicate with the server.
-class Api{
+class Api {
   Config config;
   JsonUtils jsonUtils;
   Logger logger;
-  
   LinuxFormat linuxFormat;
   LinuxCommand linuxCommand;
-  
   WindowsFormat windowsFormat;
   WindowsCommand windowsCommand;
-  
   MacOSFormat macosFormat;
   MacOSCommand macosCommand;
 
   var url;
 
   /// Constructor.
-  Api(){
+  Api() {
     this.config = new Config();
     this.jsonUtils = new JsonUtils();
     this.linuxFormat = new LinuxFormat();
@@ -52,19 +49,13 @@ class Api{
     String username = config.getInventoryConfig("username");
     String password = config.getInventoryConfig("password");
 
-    var response = await http.post(
-      Uri.parse(this.url + "/api-auth/token"), 
-      headers: {
-        HttpHeaders.contentTypeHeader: 'application/json'
-      }, 
-      body: jsonEncode({
-        'username': username, 
-        'password': password
-      })
-    );
+    var response = await http.post(Uri.parse(this.url + "/api-auth/token"),
+        headers: {HttpHeaders.contentTypeHeader: 'application/json'},
+        body: jsonEncode({'username': username, 'password': password}));
 
-    if (response.statusCode == 200){
-      config.updateInventoryConfig("token", jsonUtils.getContentFromStringByKey(response.body, "token"));
+    if (response.statusCode == 200) {
+      config.updateInventoryConfig(
+          "token", jsonUtils.getContentFromStringByKey(response.body, "token"));
     }
   }
 
@@ -72,13 +63,10 @@ class Api{
   void apiCheck() async {
     var url = Uri.parse(this.url);
 
-    var response = await http.get(
-      url, 
-      headers: this.getHeader()
-    );
+    var response = await http.get(url, headers: this.getHeader());
 
     if (response.statusCode != 200) {
-      this.generateToken();      
+      this.generateToken();
     }
   }
 
@@ -86,24 +74,23 @@ class Api{
   void sendInventory(Map<String, dynamic> body) async {
     var url = Uri.parse(this.url + "/asset/bases/");
 
-    var response = await http.post(
-      url,
-      headers: this.getHeader(),
-      body: jsonEncode(body)
-    );
+    var response =
+        await http.post(url, headers: this.getHeader(), body: jsonEncode(body));
 
-    if (response.statusCode != 200){
+    if (response.statusCode != 200) {
       logger.error("Error");
+    } else {
+      logger.info("Sending Done");
     }
   }
-  
+
   /// return header in json format.
-  Map<String, String> getHeader(){
+  Map<String, String> getHeader() {
     String token = config.getInventoryConfig("token");
 
     return {
-        HttpHeaders.contentTypeHeader: 'application/json', 
-        HttpHeaders.authorizationHeader: "Token $token"
+      HttpHeaders.contentTypeHeader: 'application/json',
+      HttpHeaders.authorizationHeader: "Token $token"
     };
   }
 
@@ -113,11 +100,15 @@ class Api{
     var urlSections = Uri.parse(this.url + "/sections/");
     var urlFields = Uri.parse(this.url + "/fields/");
 
-    var responseTemplates = await http.get(urlTemplates, headers: this.getHeader());
-    var responseSections = await http.get(urlSections, headers: this.getHeader());
+    var responseTemplates =
+        await http.get(urlTemplates, headers: this.getHeader());
+    var responseSections =
+        await http.get(urlSections, headers: this.getHeader());
     var responseFields = await http.get(urlFields, headers: this.getHeader());
 
-    if (responseTemplates.statusCode == 200 && responseSections.statusCode == 200 && responseFields.statusCode == 200) {
+    if (responseTemplates.statusCode == 200 &&
+        responseSections.statusCode == 200 &&
+        responseFields.statusCode == 200) {
       Map<String, dynamic> template = json.decode(responseTemplates.body);
       List<dynamic> sections = json.decode(responseSections.body);
       List<dynamic> fields = json.decode(responseFields.body);
@@ -127,19 +118,20 @@ class Api{
         v["fields"] = listfield.toList();
       });
 
-      template["sections"] = sections.where((sec) => sec['template'] == id).toList();
+      template["sections"] =
+          sections.where((sec) => sec['template'] == id).toList();
       var encoder = new JsonEncoder.withIndent("\t");
       config.setTemplate(encoder.convert(template));
     }
   }
 
-  /// Check if the template is not empty, get all informations from template 
+  /// Check if the template is not empty, get all informations from template
   /// and send inventory.
   getInventory() async {
     Map<String, dynamic> template = config.getTemplate();
 
-    if (template == null){
-      logger.error("Template is empty");
+    if (template == null) {
+      logger.error("Template is empty from get inventory");
     } else {
       var value = await this.getInventoryResult(template, template["os"]);
       logger.info("inventory 2 : $value");
@@ -147,9 +139,10 @@ class Api{
     }
   }
 
-  /// Get all informations present in the [template] from the computer 
+  /// Get all informations present in the [template] from the computer
   /// with a [os] verification and format it in json.
-  Future<Map<String, dynamic>> getInventoryResult(Map<String, dynamic> template, String os) async{
+  Future<Map<String, dynamic>> getInventoryResult(
+      Map<String, dynamic> template, String os) async {
     var format;
 
     if (os == "LIN") {
@@ -166,20 +159,23 @@ class Api{
 
     List<dynamic> sections = template['sections'];
 
-    for (var section in sections){
+    for (var section in sections) {
       List<dynamic> fields = section['fields'];
-      
-      for (var field in fields){
+
+      for (var field in fields) {
         String valueTarget;
         switch (section['retrival_output']) {
           case "TBLE":
-            valueTarget = await format.getbyArray(section["target"], field["retrival_value"], section['retrival_method']);
+            valueTarget = await format.getbyArray(section["target"],
+                field["retrival_value"], section['retrival_method']);
             break;
           case "JSON":
-            valueTarget = await format.getbyJson(section["target"], field["retrival_value"], section['retrival_method']);
+            valueTarget = await format.getbyJson(section["target"],
+                field["retrival_value"], section['retrival_method']);
             break;
           case "PTXT":
-            valueTarget = await format.getbyPtxt(section["target"], field["retrival_value"], section['retrival_method']);
+            valueTarget = await format.getbyPtxt(section["target"],
+                field["retrival_value"], section['retrival_method']);
             break;
           default:
             valueTarget = null;

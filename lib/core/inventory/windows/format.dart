@@ -12,7 +12,7 @@ class WindowsFormat{
   }
 
   /// get array [indexString] of [command] by [type].
-  Future<String> getbyArray(String command, String indexString, String type) async {
+  Future<void> getbyArray(String command, String indexString, String type) async {
     String result;
     int index = int.parse(indexString);
 
@@ -59,7 +59,7 @@ class WindowsFormat{
         break;
     }
 
-    var json = this.FormatJson(result);
+    var json = this.formatJson(result);
 
     return json[key];
   }
@@ -87,7 +87,7 @@ class WindowsFormat{
   }
 
   /// format result [txt] to json.
-  Map<String, dynamic> FormatJson(String txt){
+  Map<String, dynamic> formatJson(String txt){
     String json = "{\r\n";
 
     var list = txt.split("\r\n");
