@@ -7,7 +7,7 @@ dynamic getBody() async {
 
   /// Command get the mac address list
   dynamic macAddr;
-  macAddr = await windowsCommand.commandCmd("getmac");
+  macAddr = await windowsCommand.commandCmd("getmac", true);
 
   /// RegExp to match mac address
   RegExp regexMacAddr;
@@ -19,7 +19,7 @@ dynamic getBody() async {
 
   /// Command get to get the IP
   String ip;
-  ip = await windowsCommand.commandCmd("ipconfig");
+  ip = await windowsCommand.commandCmd("ipconfig", true);
 
   /// RegExp to match IP
   RegExp regexIP;
@@ -30,22 +30,22 @@ dynamic getBody() async {
   getIP = regexIP.stringMatch(ip);
 
   dynamic body = ({
-    "name": await windowsCommand.commandCmd("hostname"),
+    "name": await windowsCommand.commandCmd("hostname", true),
     "description": await windowsCommand.commandPowershell(
-        "(Get-WMIObject -Class Win32_ComputerSystemProduct).Description"),
+        "(Get-WMIObject -Class Win32_ComputerSystemProduct).Description", true),
     "serial": await windowsCommand.commandPowershell(
-        "(Get-WMIObject win32_operatingsystem).SerialNumber"),
-    "osname": (await windowsCommand
-            .commandPowershell("(Get-WMIObject win32_operatingsystem).name"))
+        "(Get-WMIObject win32_operatingsystem).SerialNumber", true),
+    "osname": (await windowsCommand.commandPowershell(
+            "(Get-WMIObject win32_operatingsystem).name", true))
         .split("|")[0],
-    "osversion": await windowsCommand
-        .commandPowershell("(Get-WMIObject win32_operatingsystem).Version"),
+    "osversion": await windowsCommand.commandPowershell(
+        "(Get-WMIObject win32_operatingsystem).Version", true),
     "uuid": await windowsCommand.commandPowershell(
-        "(Get-WMIObject -Class Win32_ComputerSystemProduct).UUID"),
+        "(Get-WMIObject -Class Win32_ComputerSystemProduct).UUID", true),
     "srcip": await getIP,
     "srcmac": await getMacAddr,
     "domain": await windowsCommand.commandPowershell(
-        "(Get-WMIObject -Class Win32_ComputerSystem).Domain"),
+        "(Get-WMIObject -Class Win32_ComputerSystem).Domain", true),
   });
 
   return body;

@@ -76,10 +76,8 @@ class Api {
   /// Send [body] to api /asset/bases.
   void sendInventory(Map<String, dynamic> body) async {
     /// Get the UUID of the body
-    String uuidBody = await body['uuid'];
+    String uuid = await body['uuid'];
 
-    /// [uuid.length - 1] is used to skape the buffer character
-    String uuid = uuidBody.substring(0, uuidBody.length - 1);
     var urlGet = Uri.parse(this.url + "/asset/bases/?uuid=$uuid");
 
     /// Get the inventory of this [uuid] in asset bases

@@ -20,16 +20,16 @@ class WindowsFormat {
 
     switch (type) {
       case "FILE":
-        await windowsCommand.readFile(command).then((value) => result = value);
+        await windowsCommand.readFile(command, true).then((value) => result = value);
         break;
       case "PW":
         await windowsCommand
-            .commandPowershell(command)
+            .commandPowershell(command, true)
             .then((value) => result = value);
         break;
       case "CMD":
         await windowsCommand
-            .commandCmd(command)
+            .commandCmd(command, true)
             .then((value) => result = value);
         break;
     }
@@ -55,16 +55,16 @@ class WindowsFormat {
 
     switch (type) {
       case "FILE":
-        await windowsCommand.readFile(command).then((value) => result = value);
+        await windowsCommand.readFile(command, true).then((value) => result = value);
         break;
       case "PW":
         await windowsCommand
-            .commandPowershell(command)
+            .commandPowershell(command, true)
             .then((value) => result = value);
         break;
       case "CMD":
         await windowsCommand
-            .commandCmd(command)
+            .commandCmd(command, true)
             .then((value) => result = value);
         break;
     }
@@ -82,16 +82,16 @@ class WindowsFormat {
 
     switch (type) {
       case "FILE":
-        await windowsCommand.readFile(command).then((value) => result = value);
+        await windowsCommand.readFile(command, true).then((value) => result = value);
         break;
       case "PW":
         await windowsCommand
-            .commandPowershell(command)
+            .commandPowershell(command, true)
             .then((value) => result = value);
         break;
       case "CMD":
         await windowsCommand
-            .commandCmd(command)
+            .commandCmd(command, true)
             .then((value) => result = value);
         break;
     }
