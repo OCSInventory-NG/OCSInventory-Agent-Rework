@@ -3,7 +3,7 @@ import 'dart:io';
 /// Class for execute command on linux.
 class LinuxCommand {
   /// Execute [commandLine] to Shell.
-  Future<String> commandShell(String commandLine) async {
+  Future<String> commandShell(String commandLine, bool normalization) async {
     List<String> args = commandLine.split(" ");
     String command = args[0];
     args.removeAt(0);
@@ -12,15 +12,29 @@ class LinuxCommand {
     }
 
     var process;
-    await Process.run(command, args).then((value) => process = value.stdout);
+    if (normalization) {
+      String processNormalization;
+      await Process.run(command, args)
+          .then((value) => processNormalization = value.stdout);
+      process = processNormalization.trim();
+    } else {
+      await Process.run(command, args).then((value) => process = value.stdout);
+    }
 
     return process;
   }
 
   /// Return [path] file content.
-  Future<String> readFile(String path) async {
+  Future<String> readFile(String path, bool normalization) async {
     var process;
-    await Process.run("cat", [path]).then((value) => process = value.stdout);
+    if (normalization) {
+      String processNormalization;
+      await Process.run("cat", [path])
+          .then((value) => processNormalization = value.stdout);
+      process = processNormalization.trim();
+    } else {
+      await Process.run("cat", [path]).then((value) => process = value.stdout);
+    }
 
     return process;
   }
@@ -30,13 +44,13 @@ class LinuxCommand {
   Future<String> getResult(String command, String type) async {
     switch (type) {
       case "FILE":
-        return await this.readFile(command);
+        return await this.readFile(command, true);
         break;
       case "CMD":
-        return await this.commandShell(command);
+        return await this.commandShell(command, true);
         break;
       case "BASH":
-        return await this.commandShell(command);
+        return await this.commandShell(command, true);
     }
   }
 }
