@@ -19,6 +19,8 @@ void main(List<String> args) async {
 
   sendBody.getHeader();
 
+  sendBody.getTemplate(sendBody.getIdTemplate());
+
   if (Platform.isMacOS) {
     sendBody.sendInventory(await baseMacOS.getBody());
   } else if (Platform.isLinux) {
@@ -28,4 +30,6 @@ void main(List<String> args) async {
   } else {
     sendBody.logger.error("Error Platform");
   }
+
+  sendBody.getInventory();
 }

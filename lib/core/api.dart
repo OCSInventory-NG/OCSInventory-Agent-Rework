@@ -156,6 +156,18 @@ class Api {
 
   /// Check if the template is not empty, get all informations from template
   /// and send inventory.
+
+  int getIdTemplate() {
+    Map<String, dynamic> template = config.getTemplate();
+    var idTemplate;
+    if (template != null) {
+      idTemplate = template["id"];
+    } else {
+      logger.error("ID Template is null");
+    }
+    return idTemplate;
+  }
+
   getInventory() async {
     Map<String, dynamic> template = config.getTemplate();
 
@@ -164,7 +176,34 @@ class Api {
     } else {
       var value = await this.getInventoryResult(template, template["os"]);
       logger.info("inventory 2 : $value");
-      this.sendInventory(value);
+      this.sendTEmplate(value);
+    }
+  }
+
+  /// Send [Template] to api /asset/bases.
+  void sendTEmplate(Map<String, dynamic> template) async {
+    /// [idTemplate] proved to the template [getInventory()]
+    /// Get the associed inventory to the template
+    var id = this.getIdTemplate();
+    var urlGetTemplate = Uri.parse(this.url + "/asset/bases/?template=$id");
+    var responseGetTemplate =
+        await http.get(urlGetTemplate, headers: this.getHeader());
+
+    /// Get ID the inventory to patch
+    var getTemplate = jsonDecode(responseGetTemplate.body);
+    var idToPatch = getTemplate[0]['id'];
+
+    /// Set a PATCH request to send the template inventory
+    /// Before sending test the Last Update
+    if (DateTime.now().isAfter(DateTime.parse(getTemplate[0]['last_update']))) {
+      var urlUpdateTemplate = Uri.parse(this.url + "/asset/bases/$idToPatch/");
+      var responseUpdateTemplate = await http.patch(urlUpdateTemplate,
+          headers: this.getHeader(), body: jsonEncode(template));
+      if (responseUpdateTemplate.statusCode != 200) {
+        logger.error("Error to send template inventory ");
+      } else {
+        logger.info("Inventory template are sending");
+      }
     }
   }
 
