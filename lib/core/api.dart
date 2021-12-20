@@ -181,7 +181,7 @@ class Api {
   }
 
   /// Send [Template] to api /asset/bases.
-  void sendTEmplate(Map<String, dynamic> template) async {
+  void sendTemplate(Map<String, dynamic> template) async {
     /// [idTemplate] proved to the template [getInventory()]
     /// Get the associed inventory to the template
     var id = this.getIdTemplate();
