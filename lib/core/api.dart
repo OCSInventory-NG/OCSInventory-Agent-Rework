@@ -176,12 +176,12 @@ class Api {
     } else {
       var value = await this.getInventoryResult(template, template["os"]);
       logger.info("inventory 2 : $value");
-      this.sendTEmplate(value);
+      this.sendTemplate(value);
     }
   }
 
   /// Send [Template] to api /asset/bases.
-  void sendTEmplate(Map<String, dynamic> template) async {
+  void sendTemplate(Map<String, dynamic> template) async {
     /// [idTemplate] proved to the template [getInventory()]
     /// Get the associed inventory to the template
     var id = this.getIdTemplate();
