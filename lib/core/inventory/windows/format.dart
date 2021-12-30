@@ -20,7 +20,9 @@ class WindowsFormat {
 
     switch (type) {
       case "FILE":
-        await windowsCommand.readFile(command, true).then((value) => result = value);
+        await windowsCommand
+            .readFile(command, true)
+            .then((value) => result = value);
         break;
       case "PW":
         await windowsCommand
@@ -55,7 +57,9 @@ class WindowsFormat {
 
     switch (type) {
       case "FILE":
-        await windowsCommand.readFile(command, true).then((value) => result = value);
+        await windowsCommand
+            .readFile(command, true)
+            .then((value) => result = value);
         break;
       case "PW":
         await windowsCommand
@@ -82,7 +86,9 @@ class WindowsFormat {
 
     switch (type) {
       case "FILE":
-        await windowsCommand.readFile(command, true).then((value) => result = value);
+        await windowsCommand
+            .readFile(command, true)
+            .then((value) => result = value);
         break;
       case "PW":
         await windowsCommand
@@ -105,13 +111,20 @@ class WindowsFormat {
   Map<String, dynamic> formatJson(String txt) {
     String json = "{\r\n";
 
+    int temoinJsonList = 0;
     var list = txt.split("\r\n");
-    print("TEST : $list");
-    list.removeWhere((element) => element == "");
+    if (list.contains("") == true) {
+      json = "[\r\n{\r\n";
+      temoinJsonList = 1;
+    }
 
     int n = 1;
 
     list.forEach((element) {
+      if (element.contains(":") == false) {
+        element = "}\r\n{";
+      }
+
       element = element.replaceAll(new RegExp(r"^ *"), '');
       element = element.replaceAll(new RegExp(r"^\s*"), '');
 
@@ -123,6 +136,9 @@ class WindowsFormat {
         list2[1] = list2[1].replaceAll(new RegExp(r"^ *"), '');
         list2[1] = list2[1].replaceAll(new RegExp(r"^\s*"), '');
 
+        /// Escape the string escape \ in json format
+        list2[1] = list2[1].replaceAll(new RegExp(r"\\"), '');
+
         if (list2[1] == null || list2[1] == "") {
           list2[1] = list2[0];
         }
@@ -133,9 +149,19 @@ class WindowsFormat {
           json += "\"" + list2[0] + "\": \"" + list2[1] + "\"\r\n";
         }
       }
+
+      if (element.contains("}\r\n{") == true) {
+        json = json.substring(0, json.length - 3);
+        json += "\r\n},\r\n{\r\n";
+      }
       n++;
     });
-    json += "}";
+
+    if (temoinJsonList == 1) {
+      json += "}\r\n]";
+    } else {
+      json += "}";
+    }
 
     return jsonDecode(json);
   }
