@@ -159,7 +159,7 @@ class Api {
     if (template != null) {
       idTemplate = template["id"];
     } else {
-      logger.error("ID Template is null");
+      idTemplate = int.parse(config.getInventoryConfig("template"));
     }
     return idTemplate;
   }
