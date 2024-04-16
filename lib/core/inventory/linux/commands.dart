@@ -16,8 +16,12 @@
 
 import 'dart:io';
 
+import 'package:ocs_agent/core/log.dart';
+
 /// Class for execute command on linux.
 class LinuxCommand {
+  Logger logger = Logger();
+
   /// Execute [commandLine] to Shell.
   Future<String> commandShell(String commandLine, bool normalization) async {
     List<String> args = commandLine.split(" ");
@@ -30,32 +34,63 @@ class LinuxCommand {
     Map<String, String> ev = new Map<String, String>();
     ev.putIfAbsent("LANG", () => "C");
 
-    var process;
-    if (normalization) {
-      late String processNormalization;
-      await Process.run(command, args, environment: ev)
-          .then((value) => processNormalization = value.stdout);
-      process = processNormalization.trim();
-    } else {
-      await Process.run(command, args).then((value) => process = value.stdout);
+    String processValue = "";
+
+    try {
+      // Attempt to run the command
+      late ProcessResult process;
+      if (normalization) {
+        process = await Process.run(command, args, environment: ev);
+        processValue = await process.stdout.toString().trim();
+      } else {
+        process = await Process.run(command, args);
+        processValue = await process.stdout.toString();
+      }
+
+      if (process.exitCode != 0) {
+        processValue = "";
+        logger.error("Executing command '$commandLine' - ${process.stderr}");
+      } else {
+        logger.verbose("Command executed successfully: $commandLine");
+      }
+    } on ProcessException catch (e) {
+      // Handle the specific error
+      logger.error("This command '$command' could not be found : $e");
+    } catch (e) {
+      // Handle other errors
+      logger.error('An error occurred : $e');
     }
 
-    return process;
+    return processValue;
   }
 
   /// Return [path] file content.
   Future<String> readFile(String path, bool normalization) async {
-    var process;
-    if (normalization) {
-      late String processNormalization;
-      await Process.run("cat", [path])
-          .then((value) => processNormalization = value.stdout);
-      process = processNormalization.trim();
-    } else {
-      await Process.run("cat", [path]).then((value) => process = value.stdout);
+    String processValue = "";
+    try {
+      // Attempt to run the command
+      var process = await Process.run("cat", [path]);
+      if (normalization) {
+        processValue = await process.stdout.toString().trim();
+      } else {
+        processValue = await process.stdout.toString();
+      }
+
+      if (process.exitCode != 0) {
+        processValue = "";
+        logger.error("Executing file '$path' - ${process.stderr}");
+      } else {
+        logger.verbose("File executed successfully: $path");
+      }
+    } on ProcessException catch (e) {
+      // Handle the specific error
+      logger.error("This file '$path' could not be found : $e");
+    } catch (e) {
+      // Handle other errors
+      logger.error('An error occurred : $e');
     }
 
-    return process;
+    return processValue;
   }
 
   /// Execute or read [command] in terms of [type].

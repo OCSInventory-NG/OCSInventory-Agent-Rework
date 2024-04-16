@@ -14,9 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:ocs_agent/core/common/files_utils.dart';
+import 'package:ocs_agent/core/common/json_utils.dart';
 import 'package:ocs_agent/core/log.dart';
 
 import 'package:ocs_agent/core/inventory/linux/commands.dart' as command;
+import 'package:sprintf/sprintf.dart';
 
 ///This fonction return the body for to asset/bases
 dynamic getBody() async {
@@ -60,15 +66,18 @@ dynamic getBody() async {
       (await linuxCommand.commandShell("ip route show default", true))
           .split(" ")[4];
 
-  dynamic getMACAddress = await linuxCommand.commandShell(
+  dynamic getmacAdress = await linuxCommand.commandShell(
       "ip link show " + interface.toString(), true);
   RegExp exp = RegExp(r'link\/ether (?<mac>[\S\s]+?) ');
-  RegExpMatch? match = exp.firstMatch(getMACAddress);
-  String macAddress =
-      match![0].toString().substring(11, match[0].toString().length);
+  RegExpMatch? match = exp.firstMatch(getmacAdress);
+  String macAdress =
+      match![0].toString().substring(11, match[0].toString().length).trim();
+
+  // Get name
+  String name = await linuxCommand.commandShell("hostname", true);
 
   dynamic body = ({
-    "name": await linuxCommand.commandShell("hostname", true),
+    "name": name,
     "description": osRelease["PRETTY_NAME"].toString() +
         " " +
         hostnamectl["Architecture"].toString(),
@@ -76,15 +85,55 @@ dynamic getBody() async {
         "sudo dmidecode -s system-serial-number", true),
     "osname": osRelease["NAME"].toString(),
     "osversion": osRelease["VERSION_ID"].toString(),
-    "uuid":
-        await linuxCommand.commandShell("sudo dmidecode -s system-uuid", true),
+    "uuid": await _getUUID(name, macAdress),
     "srcip":
         (await linuxCommand.commandShell("hostname -I", true)).split(" ")[0],
-    "srcmac": macAddress,
+    "srcmac": macAdress,
     "domain": await linuxCommand.commandShell("hostname -d", true)
   });
 
   logger.info("OS body has been retrieved!");
 
   return body;
+}
+
+/// Get UUID or generate one if not available and save it in a uuid file
+Future<String> _getUUID(String name, String macAdress) async {
+  var linuxCommand = new command.LinuxCommand();
+  JsonUtils jsonUtils = new JsonUtils();
+  Logger logger = new Logger();
+  String uuid =
+      await linuxCommand.commandShell("sudo dmidecode -s system-uuid", true);
+
+  if (uuid == "") {
+    String containerFileName = sprintf('%s/%s.json', ["config/", "uuid"]);
+    File containerLinuxFile = File(containerFileName);
+    if (!containerLinuxFile.existsSync()) {
+      containerLinuxFile.createSync(recursive: true);
+      containerLinuxFile.writeAsStringSync("{}");
+    }
+    Map<String, dynamic> containerLinux =
+        jsonUtils.getContentFromFile(containerLinuxFile);
+
+    if (containerLinux.isNotEmpty &&
+        containerLinux.containsValue(name) &&
+        containerLinux.containsValue(macAdress)) {
+      uuid = containerLinux["uuid"];
+      logger.info("UUID has been retrieved from the uuid file.");
+    } else {
+      logger.info("UUID not found, generating a new one...");
+      uuid = await linuxCommand.commandShell("uuidgen", true);
+      dynamic baseAdded = {};
+      baseAdded["name"] = name;
+      baseAdded["uuid"] = uuid;
+      baseAdded["MAC"] = macAdress;
+
+      JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+      String str = encoder.convert(baseAdded);
+      FilesUtils filesUtils = new FilesUtils();
+      filesUtils.rewriteFile(containerLinuxFile, str);
+      logger.info("UUID has been generated and saved in the uuid file.");
+    }
+  }
+  return uuid;
 }
