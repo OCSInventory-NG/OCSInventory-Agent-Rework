@@ -81,7 +81,7 @@ class Deployment {
             Uri.parse(
                 url + "/deployment/results/" + element["id"].toString() + "/"),
             httpUtils.getHeader(config),
-            "{\"comment\": \"Notified\"}");
+            "{\"status\": 2, \"comment\": \"Notified\"}");
         logger.verbose(responseNotified["message"]);
       }
       return true;
@@ -199,7 +199,7 @@ class Deployment {
               "executeActions",
               Uri.parse(url + "/deployment/results/$id/"),
               httpUtils.getHeader(config),
-              "{\"status\": 1, \"comment\": \"Success\"}");
+              "{\"status\": 0, \"comment\": \"Success\"}");
           logger.verbose(responseSuccess["message"]);
           if (responseSuccess["status_code"] == 200) {
             logger.info("Package $id was completed successfully!");
@@ -217,7 +217,7 @@ class Deployment {
               "executeActions",
               Uri.parse(url + "/deployment/results/$id/"),
               httpUtils.getHeader(config),
-              "{\"status\": 2, \"comment\": \"Error\"}");
+              "{\"status\": 3, \"comment\": \"Error\"}");
           logger.verbose(responseFail["message"]);
           if (responseFail["status_code"] == 200) {
             logger.info("Package $id was not completed successfully!");
