@@ -27,10 +27,7 @@ class WindowsFormat {
   late WindowsCommand windowsCommand;
 
   /// Constructor.
-  WindowsFormat(Logger logger, WindowsCommand windowsCommand) {
-    this.logger = logger;
-    this.windowsCommand = windowsCommand;
-  }
+  WindowsFormat(this.logger, this.windowsCommand);
 
   /// get result of [resultCommand] for each [fields].
   List<dynamic> getByArray(
@@ -69,15 +66,17 @@ class WindowsFormat {
   List<dynamic> getByJson(
       List<dynamic> fields, Map<String, dynamic> resultCommand) {
     var fieldsOver = fields.where((element) => element["override_target"]);
-    var json = new Map<String, dynamic>();
+    Map<String, dynamic> json = {};
+    List<dynamic> subInventory = [];
     late Map<String, dynamic> result;
-    List<dynamic> subInventory = new List.empty(growable: true);
 
     resultCommand.keys.forEach((element) {
       try {
-        if (resultCommand[element]['options'] != null &&
-            resultCommand[element]['options'].containsKey('need_format') &&
-            !resultCommand[element]['options']['need_format']) {
+        Map<String, dynamic>? rawOptions = resultCommand[element]['options'];
+
+        if (rawOptions != null &&
+            rawOptions.containsKey('need_format') &&
+            !rawOptions['need_format']) {
           json[element] = jsonDecode(resultCommand[element]['result']);
         } else {
           json[element] = this.formatJson(resultCommand[element]['result']);
@@ -92,47 +91,15 @@ class WindowsFormat {
     if (json["main"] != null) {
       if (json["main"] is List<dynamic>) {
         json["main"].forEach((element) {
-          result = new Map();
-          fields.forEach((field) {
-            if (element.containsKey(field["retrival_value"])) {
-              // if (element[field["retrival_value"]] is String) {
-              //   result.putIfAbsent(field['name'],
-              //       () => element[field['retrival_value']].trim());
-              // } else {
-              //   result.putIfAbsent(
-              //       field['name'], () => element[field['retrival_value']]);
-              // }
-              result.putIfAbsent(field['name'],
-                  () => element[field['retrival_value']].toString().trim());
-            } else {
-              result.putIfAbsent(field['name'], () => null);
-            }
-          });
-          subInventory.add(result);
+          subInventory.add(extractResult(element, fields));
         });
       } else {
-        result = new Map();
-        fields.forEach((field) {
-          if (json["main"].containsKey(field["retrival_value"])) {
-            // if (json["main"][field["retrival_value"]] is String) {
-            //   result.putIfAbsent(field['name'],
-            //       () => json["main"][field['retrival_value']].trim());
-            // } else {
-            //   result.putIfAbsent(
-            //       field['name'], () => json["main"][field['retrival_value']]);
-            // }
-            result.putIfAbsent(field['name'],
-                () => json["main"][field['retrival_value']].toString().trim());
-          } else {
-            result.putIfAbsent(field['name'], () => null);
-          }
-        });
-        subInventory.add(result);
+        subInventory.add(extractResult(json["main"], fields));
       }
     } else {
-      result = new Map();
+      result = {};
       fields.forEach((field) {
-        result.putIfAbsent(field['name'], () => null);
+        result[field['name']] ??= null;
       });
       subInventory.add(result);
     }
@@ -141,7 +108,7 @@ class WindowsFormat {
       if (json[fieldOver["name"]] != null) {
         if (json[fieldOver["name"]] is List<dynamic>) {
           json[fieldOver["name"]].forEach((element) {
-            result = new Map();
+            result = {};
             if (element.containsKey(fieldOver["retrival_value"])) {
               // if (element[fieldOver["retrival_value"]] is String) {
               //   result.update(fieldOver['name'],
@@ -360,36 +327,61 @@ class WindowsFormat {
     String json = "{\r\n";
 
     var list = txt.split("\r");
-    list.removeWhere((element) => element == "");
+
+    list.removeWhere((element) => element.trim().isEmpty);
 
     int n = 1;
 
     list.forEach((element) {
-      element = element.replaceAll(new RegExp(r"^ *"), '');
-      element = element.replaceAll(new RegExp(r"^\s*"), '');
-
+      element = element.trimLeft();
       var list2 = element.split(":");
 
       if (list2.asMap().containsKey(1)) {
-        list2[0] = list2[0].replaceAll(new RegExp(r" *$"), '');
-        list2[0] = list2[0].replaceAll(new RegExp(r"\s*$"), '');
-        list2[1] = list2[1].replaceAll(new RegExp(r"^ *"), '');
-        list2[1] = list2[1].replaceAll(new RegExp(r"^\s*"), '');
+        var key = list2[0].trim();
+        var value = list2.sublist(1).join(":").trim();
 
-        if (list2[1].isEmpty || list2[1] == "") {
-          list2[1] = list2[0];
+        if (value.isEmpty) {
+          value = key;
         }
 
-        if (n < list.length) {
-          json += "\"" + list2[0] + "\": \"" + list2[1] + "\",\r\n";
+        var sanitizedValue;
+        if (value.toLowerCase() == 'true' || value.toLowerCase() == 'false') {
+          sanitizedValue = value.toLowerCase();
+        } else if (int.tryParse(value) != null) {
+          sanitizedValue = value;
         } else {
-          json += "\"" + list2[0] + "\": \"" + list2[1] + "\"\r\n";
+          sanitizedValue = "\"" + value.replaceAll("\"", "\\\"") + "\"";
+        }
+
+        if (n < list.length - 1) {
+          json += "\"$key\": $sanitizedValue,\r\n";
+        } else {
+          json += "\"$key\": $sanitizedValue\r\n";
         }
       }
+
       n++;
     });
+
     json += "}";
 
     return jsonDecode(json);
   }
 }
+
+Map<String, dynamic> extractResult(
+    Map<String, dynamic> currentMain, List<dynamic> fields) {
+  final result = <String, dynamic>{};
+
+  fields.forEach((field) {
+    final key = field['retrival_value'];
+    if (currentMain.containsKey(key)) {
+      result[field['name']] ??= currentMain[key].toString().trim();
+    } else {
+      result[field['name']] ??= null;
+    }
+  });
+
+  return result;
+}
+

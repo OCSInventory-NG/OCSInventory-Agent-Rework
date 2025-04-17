@@ -36,6 +36,7 @@ class WindowsCommand {
     List<String> args = commandLine.split(" ");
     String command = args[0];
     args.removeAt(0);
+
     if (args.isEmpty) {
       args = [];
     }
@@ -44,10 +45,10 @@ class WindowsCommand {
     try {
       // Attempt to run the command
       var process = await Process.run(command, args);
+      String output = await process.stdout.toString();
+
       if (normalization) {
-        processData["value"] = await process.stdout.toString().trim();
-      } else {
-        processData["value"] = await process.stdout.toString();
+        output = output.trim();
       }
 
       if (process.exitCode != 0) {
@@ -58,13 +59,12 @@ class WindowsCommand {
         logger.error(this.runtimeType.toString(),
             "Executing command $commandLine : ${process.stderr}");
       } else {
+        processData["value"] =
+            output.isEmpty ? "No output for command '$commandLine'" : output;
         processData["status"] = true;
         processData["error"] = "";
         logger.verbose(
             this.runtimeType.toString(), "Command executed: $commandLine");
-        if (processData["value"] == "") {
-          processData["value"] = "No output for command '$commandLine'";
-        }
       }
     } on ProcessException catch (e) {
       processData["value"] = "";
@@ -87,8 +87,8 @@ class WindowsCommand {
   /// Execute [commandLine] to powershell.
   Future<Map<String, Object>> commandPowershell(
       String commandLine, bool normalization) async {
-    List<String> args = commandLine.split(" ");
     String command = "powershell.exe";
+    List<String> args;
 
     // utf8 encoding
     args = [
@@ -101,10 +101,10 @@ class WindowsCommand {
       // Attempt to run the command
       var process = await Process.run(command, args,
           stdoutEncoding: utf8, stderrEncoding: utf8);
+      String output = process.stdout.toString();
+
       if (normalization) {
-        processData["value"] = await process.stdout.toString().trim();
-      } else {
-        processData["value"] = await process.stdout.toString();
+        output = output.trim();
       }
 
       if (process.exitCode != 0) {
@@ -115,13 +115,12 @@ class WindowsCommand {
         logger.error(this.runtimeType.toString(),
             "Executing command '$commandLine' - ${process.stderr}");
       } else {
+        processData["value"] =
+            output.isEmpty ? "No output for command '$commandLine'" : output;
         processData["status"] = true;
         processData["error"] = "";
         logger.verbose(
             this.runtimeType.toString(), "Command executed: $commandLine");
-        if (processData["value"] == "") {
-          processData["value"] = "No output for command '$commandLine'";
-        }
       }
     } on ProcessException catch (e) {
       processData["value"] = "";
@@ -202,3 +201,4 @@ class WindowsCommand {
     return null;
   }
 }
+
