@@ -27,41 +27,55 @@ class LinuxFormat {
   late LinuxCommand linuxCommand;
 
   /// Constructor.
-  LinuxFormat(Logger logger, LinuxCommand linuxCommand) {
-    this.logger = logger;
-    this.linuxCommand = linuxCommand;
-  }
+  LinuxFormat(this.logger, this.linuxCommand);
 
   /// get result of [resultCommand] for each [fields].
   List<dynamic> getByArray(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    List<Map<String, dynamic>> arrayResult = this.formatArray(
-        resultCommand['main']['result'], resultCommand['main']['options']);
-    List<dynamic> subinventory = new List.empty(growable: true);
+    List<dynamic> fields,
+    Map<String, dynamic> resultCommand,
+  ) {
+    List<Map<String, dynamic>> arrayResult = [];
+    List<dynamic> subinventory = [];
     Map<String, dynamic> result;
 
-    arrayResult.forEach((element) {
-      result = new Map();
-      for (var field in fields) {
-        if (resultCommand.containsKey(field['name'])) {
-          result.putIfAbsent(
-              field['name'],
-              () => this.getResult(
-                  field['retrival_output'],
-                  resultCommand[field['name']]['result'],
-                  field['retrival_value']));
-        } else {
-          String index = field["retrival_value"];
+    var mainResult = resultCommand['main']?['result'];
+    var mainOptions = resultCommand['main']?['options'];
 
-          if (element.containsKey(index)) {
-            result.putIfAbsent(field['name'], () => element[index]);
+    if (mainResult != null && mainOptions != null) {
+      arrayResult = this.formatArray(mainResult, mainOptions);
+    } else {
+      logger.error(
+        this.runtimeType.toString(),
+        "Missing 'main.result' or 'main.options' in resultCommand.",
+      );
+    }
+
+    if (arrayResult.isNotEmpty) {
+      arrayResult.forEach((element) {
+        result = {};
+        for (var field in fields) {
+          if (resultCommand.containsKey(field['name'])) {
+            extractResultsFromCommand(result, field, resultCommand);
           } else {
-            result.putIfAbsent(field['name'], () => "null");
+            String index;
+
+            try {
+              index = field["retrival_value"];
+            } catch (e) {
+              logger.error(this.runtimeType.toString(), e.toString());
+              index = "";
+            }
+
+            result.putIfAbsent(
+              field['name'],
+              () => element.containsKey(index) ? element[index] : "null",
+            );
           }
         }
-      }
-      subinventory.add(result);
-    });
+
+        subinventory.add(result);
+      });
+    }
 
     logger.verbose(this.runtimeType.toString(), subinventory.toString());
 
@@ -70,24 +84,42 @@ class LinuxFormat {
 
   /// get result of [resultCommand] for each [fields].
   List<dynamic> getByJson(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    var json = this.formatJson(resultCommand['main']['result']);
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
+    List<dynamic> fields,
+    Map<String, dynamic> resultCommand,
+  ) {
+    List<dynamic> subInventory = [];
+    Map<String, dynamic> result = {};
+    Map<String, dynamic> json = {};
+    var mainResult = resultCommand['main']?['result'];
 
-    for (var field in fields) {
-      if (resultCommand.containsKey(field['name'])) {
-        result.putIfAbsent(
-            field['name'],
-            () => this.getResult(
-                field['retrival_output'],
-                resultCommand[field['name']]['result'],
-                field['retrival_value']));
-      } else {
-        result.putIfAbsent(field['name'], () => json[field['retrival_value']]);
-      }
+    if (mainResult != null) {
+      json = this.formatJson(mainResult);
+    } else {
+      logger.error(
+        this.runtimeType.toString(),
+        "Missing 'main.result' in resultCommand.",
+      );
     }
-    subInventory.add(result);
+
+    if (json.isNotEmpty) {
+      for (var field in fields) {
+        if (resultCommand.containsKey(field['name'])) {
+          extractResultsFromCommand(result, field, resultCommand);
+        } else {
+          try {
+            result.putIfAbsent(
+              field['name'],
+              () => json[field['retrival_value']],
+            );
+          } catch (e) {
+            logger.error(this.runtimeType.toString(), e.toString());
+            result.putIfAbsent(field['name'], () => "null");
+          }
+        }
+      }
+
+      subInventory.add(result);
+    }
 
     logger.verbose(this.runtimeType.toString(), subInventory.toString());
 
@@ -96,22 +128,36 @@ class LinuxFormat {
 
   /// get result of [resultCommand] for each [fields].
   Future<List<dynamic>> getByPtxt(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) async {
-    var txt = resultCommand['main']['result'].split("\n").toList();
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
+    List<dynamic> fields,
+    Map<String, dynamic> resultCommand,
+  ) async {
+    List<dynamic> subInventory = [];
+    Map<String, dynamic> result = {};
+    List<String> txt = [];
+
+    try {
+      txt = resultCommand['main']['result'].split("\n").toList();
+    } catch (e) {
+      logger.error(this.runtimeType.toString(), e.toString());
+    }
 
     for (var field in fields) {
       if (resultCommand.containsKey(field['name'])) {
-        result.putIfAbsent(
-            field['name'],
-            () => this.getResult(
-                field['retrival_output'],
-                resultCommand[field['name']]['result'],
-                field['retrival_value']));
+        extractResultsFromCommand(result, field, resultCommand);
       } else {
-        int line = int.parse(field['retrival_value']);
-        result.putIfAbsent(field['name'], () => txt[line - 1]);
+        int line;
+
+        try {
+          line = int.parse(field['retrival_value']);
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          line = 0;
+        }
+
+        result.putIfAbsent(
+          field['name'],
+          () => (line > 0 && line <= txt.length) ? txt[line - 1] : "null",
+        );
       }
     }
     subInventory.add(result);
@@ -123,67 +169,79 @@ class LinuxFormat {
 
   /// get result of [resultCommand] for each [fields].
   List<dynamic> getByRegx(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    var lines = resultCommand['main']['result'].split("\n").toList();
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
+    List<dynamic> fields,
+    Map<String, dynamic> resultCommand,
+  ) {
+    List<dynamic> subInventory = [];
+    Map<String, dynamic> result = {};
+    List<String> lines = [];
 
-    bool multiple = false;
-    var separator;
-    bool haveSeparator = false;
-    bool separate = false;
+    try {
+      lines = resultCommand['main']['result'].split("\n").toList();
+    } catch (e) {
+      logger.error(this.runtimeType.toString(), e.toString());
+    }
 
-    if (resultCommand['main']['options'] != null &&
-        resultCommand['main']['options'].containsKey('multiple') &&
-        resultCommand['main']['options']['multiple']) {
-      multiple = true;
+    bool multiple = resultCommand['main']?['options']?['multiple'] ?? false;
+    bool separate;
+    RegExp? separator;
+
+    try {
+      separator =
+          resultCommand['main']?['options']?['separator'] != null
+              ? RegExp(resultCommand['main']['options']['separator'])
+              : null;
+    } catch (e) {
+      logger.error(this.runtimeType.toString(), e.toString());
+      separator = null;
     }
-    if (resultCommand['main']['options'] != null &&
-        resultCommand['main']['options'].containsKey('separator')) {
-      separator = RegExp(resultCommand['main']['options']['separator']);
-      haveSeparator = true;
-    }
+
+    bool haveSeparator = separator != null;
 
     int x = 1;
     for (var line in lines) {
       for (var field in fields) {
         if (resultCommand.containsKey(field['name'])) {
-          result.putIfAbsent(
-              field['name'],
-              () => this.getResult(
-                  field['retrival_output'],
-                  resultCommand[field['name']]['result'],
-                  field['retrival_value']));
+          extractResultsFromCommand(result, field, resultCommand);
         } else {
-          var regex = RegExp(field['retrival_value']);
-          if (regex.hasMatch(line)) {
-            var match = regex.firstMatch(line);
+          RegExp? regex;
+
+          try {
+            regex = RegExp(field['retrival_value']);
+          } catch (e) {
+            logger.error(this.runtimeType.toString(), e.toString());
+            regex = null;
+          }
+
+          if (regex != null && regex.hasMatch(line)) {
+            var match;
+
+            try {
+              match = regex.firstMatch(line);
+            } catch (e) {
+              logger.error(this.runtimeType.toString(), e.toString());
+              match = null;
+            }
+
             result.putIfAbsent(field['name'], () => match!.group(1));
           }
         }
       }
+
+      separate =
+          haveSeparator && (separator.hasMatch(line) || x == lines.length);
+
       if (multiple) {
-        if ((separator != null && separator.hasMatch(line) ||
-            x == lines.length)) {
-          separate = true;
-        }
-        if (haveSeparator) {
-          if (separate) {
-            if (result.isNotEmpty) {
-              subInventory.add(result);
-              result = new Map();
-            }
-            separate = false;
-          }
-        } else {
+        if (separate || !haveSeparator) {
           if (result.isNotEmpty) {
             subInventory.add(result);
-            result = new Map();
+            result = {};
           }
         }
       } else {
         subInventory.add(result);
       }
+
       x++;
     }
 
@@ -194,25 +252,42 @@ class LinuxFormat {
 
   /// get result of [resultCommand] for each [fields].
   List<dynamic> getByGrep(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    var lines = resultCommand['main']['result'].split("\n").toList();
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
+    List<dynamic> fields,
+    Map<String, dynamic> resultCommand,
+  ) {
+    List<dynamic> subInventory = [];
+    Map<String, dynamic> result = {};
+    List<String> lines;
+
+    try {
+      lines = resultCommand['main']['result'].split("\n").toList();
+    } catch (e) {
+      logger.error(this.runtimeType.toString(), e.toString());
+      lines = [];
+    }
 
     for (var line in lines) {
       for (var field in fields) {
         if (resultCommand.containsKey(field['name'])) {
-          result.putIfAbsent(
-              field['name'],
-              () => this.getResult(
-                  field['retrival_output'],
-                  resultCommand[field['name']]['result'],
-                  field['retrival_value']));
+          extractResultsFromCommand(result, field, resultCommand);
         } else {
-          var grep = field['retrival_value'];
+          String grep;
+
+          try {
+            grep = field['retrival_value'];
+          } catch (e) {
+            logger.error(this.runtimeType.toString(), e.toString());
+            grep = "";
+          }
+
           if (line.contains(grep)) {
-            result.putIfAbsent(field['name'],
-                () => line.substring(line.indexOf(grep) + grep.length + 1));
+            result.putIfAbsent(
+              field['name'],
+              () =>
+                  line.contains(grep)
+                      ? line.substring(line.indexOf(grep) + grep.length + 1)
+                      : "null",
+            );
           }
         }
       }
@@ -224,31 +299,97 @@ class LinuxFormat {
     return subInventory;
   }
 
+  void extractResultsFromCommand(
+    Map<String, dynamic> result,
+    dynamic field,
+    Map<String, dynamic> resultCommand,
+  ) {
+    result.putIfAbsent(
+      field['name'],
+      () => this.getResult(
+        field['retrival_output'] ?? "null",
+        resultCommand[field['name']]?['result'] ?? "null",
+        field['retrival_value'] ?? "null",
+      ),
+    );
+  }
+
   String? getResult(String type, String result, retrivalValue) {
     switch (type) {
       case "JSON":
-        var json = this.formatJson(result);
-        return json[retrivalValue];
+        if (result.isNotEmpty) {
+          var json = this.formatJson(result);
+          return json[retrivalValue];
+        }
+
+        return "null";
 
       case "PTXT":
-        var txt = result.split("\n").toList();
-        int line = int.parse(retrivalValue);
-        return txt[line - 1];
+        List<String> txt;
+        int line;
+
+        try {
+          txt = result.split("\n").toList();
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          txt = [];
+        }
+
+        try {
+          line = int.parse(retrivalValue);
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          line = 0;
+        }
+
+        return (line > 0 && line <= txt.length) ? txt[line - 1] : "null";
 
       case "REGX":
-        var lines = result.split("\n").toList();
-        var regex = RegExp(retrivalValue);
+        List<String> lines;
+        RegExp? regex;
+
+        try {
+          lines = result.split("\n").toList();
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          lines = [];
+        }
+
+        try {
+          regex = RegExp(retrivalValue);
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          regex = null;
+        }
+
         for (var line in lines) {
-          if (regex.hasMatch(line)) {
-            var match = regex.firstMatch(line);
-            return match!.group(1);
+          if (regex != null && regex.hasMatch(line)) {
+            var match;
+
+            try {
+              match = regex.firstMatch(line);
+            } catch (e) {
+              logger.error(this.runtimeType.toString(), e.toString());
+              match = null;
+            }
+
+            return match != null ? match.group(1) : "null";
           }
         }
 
         break;
+
       case "GREP":
-        var lines = result.split("\n").toList();
         String grep = retrivalValue;
+        List<String> lines;
+
+        try {
+          lines = result.split("\n").toList();
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          lines = [];
+        }
+
         for (var line in lines) {
           if (line.contains(grep)) {
             return line.substring(line.indexOf(grep) + grep.length + 1);
@@ -256,70 +397,74 @@ class LinuxFormat {
         }
 
         break;
+
       default:
         return "null";
     }
+
     return null;
   }
 
   /// Format [result] text to a list of json.
   List<Map<String, dynamic>> formatArray(
-      String result, Map<String, dynamic> options) {
-    List<String> list = result.split("\n");
+    String result,
+    Map<String, dynamic> options,
+  ) {
+    List<Map<String, dynamic>> returnValue = [];
+    List<String> list;
+    String headerLine;
+    List<String> listIndex;
 
-    late String headerLine;
-    late List<String> listIndex;
-
-    if (options.containsKey("use_index") && options['use_index']) {
-      headerLine = list[0];
-      list.removeAt(0);
+    try {
+      list = result.split("\n");
+      headerLine = list.removeAt(0);
       listIndex = headerLine.split(" ");
-      listIndex.removeWhere((element) => element == "");
-    } else {
-      list.removeAt(0);
+      listIndex.removeWhere((element) => element.isEmpty);
+    } catch (e) {
+      logger.error(this.runtimeType.toString(), e.toString());
+      list = [];
+      headerLine = "";
+      listIndex = [];
     }
 
-    //print(headerLine);
-    Map<String, int> mapIndex = new Map<String, int>();
+    Map<String, int> mapIndex = {};
     List<int> listLines = [];
-    List<Map<String, dynamic>> returnValue = [];
+    int max = 0;
 
-    if (options.containsKey("use_index") && options['use_index']) {
-      int max = 0;
+    if (listIndex.isNotEmpty) {
       listIndex.forEach((element) {
         int index = headerLine.indexOf(element, max);
         max = index;
         mapIndex.putIfAbsent(element, () => index);
         listLines.add(index);
       });
+    }
 
+    if (list.isNotEmpty) {
       list.forEach((element) {
-        Map<String, dynamic> lineJson = new Map<String, dynamic>();
-        mapIndex.forEach((key, value) {
-          int start = listLines[listLines.indexOf(value)];
-          int? after;
-          if (listLines.indexOf(value) + 1 >= listLines.length) {
-            after = null;
-          } else {
-            after = listLines[listLines.indexOf(value) + 1];
-          }
-          String lineValue = element.substring(start, after);
-          lineValue = lineValue.replaceAll(new RegExp(r'[\s]+$'), '');
+        Map<String, dynamic> lineJson = {};
+        if (options.containsKey("use_index") && options['use_index']) {
+          mapIndex.forEach((key, value) {
+            int start = listLines[listLines.indexOf(value)];
+            int? after =
+                listLines.indexOf(value) + 1 >= listLines.length
+                    ? null
+                    : listLines[listLines.indexOf(value) + 1];
 
-          lineJson.putIfAbsent(key, () => lineValue);
-        });
-        returnValue.add(lineJson);
-      });
-    } else {
-      list.forEach((element) {
-        Map<String, dynamic> lineJson = new Map<String, dynamic>();
-        var test = element.split(' ');
-        test.removeWhere((element2) => element2 == "");
-        int index = 0;
-        test.forEach((element) {
-          lineJson.putIfAbsent(index.toString(), () => element);
-          index++;
-        });
+            String lineValue = element.substring(start, after).trimRight();
+            lineJson.putIfAbsent(key, () => lineValue);
+          });
+        } else {
+          var resultLine = element.split(' ');
+          resultLine.removeWhere((element2) => element2.isEmpty);
+
+          int index = 0;
+          resultLine.forEach((element) {
+            lineJson.putIfAbsent(index.toString(), () => element);
+            index++;
+          });
+        }
+
         returnValue.add(lineJson);
       });
     }
@@ -330,48 +475,55 @@ class LinuxFormat {
   /// format result [txt] to json.
   Map<String, dynamic> formatJson(String txt) {
     String json = "{\n";
+    List<String> list = [];
 
-    var list = txt.split("\n");
-    list.removeWhere((element) => element == "");
-    list.removeWhere((element) => element == "{");
-    list.removeWhere((element) => element == "}");
+    try {
+      list = txt.split("\n");
+    } catch (e) {
+      logger.error(this.runtimeType.toString(), e.toString());
+    }
+
+    if (list.isNotEmpty) {
+      list.removeWhere(
+        (element) => element.isEmpty || element == "{" || element == "}",
+      );
+    }
 
     int n = 1;
 
-    list.forEach((element) {
-      //element = element.replaceAll(new RegExp(r"^ *"), '');
-      element = element.replaceAll(new RegExp(r"^\s*"), '');
+    if (list.isNotEmpty) {
+      list.forEach((element) {
+        element = element.trimLeft();
+        List<String> list2;
 
-      var list2 = element.split(":");
-
-      if (list2.asMap().containsKey(1)) {
-        //list2[1] = list2[1].replaceAll(new RegExp(r"^ *"), '');
-        list2[1] = list2[1].replaceAll(new RegExp(r"^\s*"), '');
-        list2[1] = list2[1].replaceAll(new RegExp(r"\s*$"), '');
-
-        String sep1;
-        String sep2;
-
-        if (list2[0].contains("\"")) {
-          sep1 = "";
-        } else {
-          sep1 = "\"";
+        try {
+          list2 = element.split(":");
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          list2 = [];
         }
 
-        if (list2[1].contains("\"")) {
-          sep2 = "";
-        } else {
-          sep2 = "\"";
+        if (list2.isNotEmpty) {
+          if (list2.asMap().containsKey(1)) {
+            list2[1] = list2[1].trim();
+
+            String key = list2[0].contains("\"") ? "" : "\"";
+            String value = list2[1].contains("\"") ? "" : "\"";
+
+            json +=
+                key +
+                list2[0] +
+                "$key: $value" +
+                list2[1] +
+                "$value" +
+                (n < list.length ? ",\n" : "\n");
+          }
         }
 
-        if (n < list.length) {
-          json += sep1 + list2[0] + "$sep1: $sep2" + list2[1] + "$sep2,\n";
-        } else {
-          json += sep1 + list2[0] + "$sep1: $sep2" + list2[1] + "$sep2\n";
-        }
-      }
-      n++;
-    });
+        n++;
+      });
+    }
+
     json += "}";
 
     return jsonDecode(json);
