@@ -198,51 +198,53 @@ class LinuxFormat {
 
     bool haveSeparator = separator != null;
 
-    int x = 1;
-    for (var line in lines) {
-      for (var field in fields) {
-        if (resultCommand.containsKey(field['name'])) {
-          extractResultsFromCommand(result, field, resultCommand);
-        } else {
-          RegExp? regex;
-
-          try {
-            regex = RegExp(field['retrival_value']);
-          } catch (e) {
-            logger.error(this.runtimeType.toString(), e.toString());
-            regex = null;
-          }
-
-          if (regex != null && regex.hasMatch(line)) {
-            var match;
-
+    if (lines.isNotEmpty) {
+      int x = 1;
+      for (var line in lines) {
+        for (var field in fields) {
+          if (resultCommand.containsKey(field['name'])) {
+            extractResultsFromCommand(result, field, resultCommand);
+          } else {
+            RegExp? regex;
+  
             try {
-              match = regex.firstMatch(line);
+              regex = RegExp(field['retrival_value']);
             } catch (e) {
               logger.error(this.runtimeType.toString(), e.toString());
-              match = null;
+              regex = null;
             }
-
-            result.putIfAbsent(field['name'], () => match!.group(1));
+  
+            if (regex != null && regex.hasMatch(line)) {
+              var match;
+  
+              try {
+                match = regex.firstMatch(line);
+              } catch (e) {
+                logger.error(this.runtimeType.toString(), e.toString());
+                match = null;
+              }
+  
+              result.putIfAbsent(field['name'], () => match!.group(1));
+            }
           }
         }
-      }
-
-      separate =
-          haveSeparator && (separator.hasMatch(line) || x == lines.length);
-
-      if (multiple) {
-        if (separate || !haveSeparator) {
-          if (result.isNotEmpty) {
-            subInventory.add(result);
-            result = {};
+  
+        separate =
+            haveSeparator && (separator.hasMatch(line) || x == lines.length);
+  
+        if (multiple) {
+          if (separate || !haveSeparator) {
+            if (result.isNotEmpty) {
+              subInventory.add(result);
+              result = {};
+            }
           }
+        } else {
+          subInventory.add(result);
         }
-      } else {
-        subInventory.add(result);
+  
+        x++;
       }
-
-      x++;
     }
 
     logger.verbose(this.runtimeType.toString(), subInventory.toString());
@@ -257,42 +259,44 @@ class LinuxFormat {
   ) {
     List<dynamic> subInventory = [];
     Map<String, dynamic> result = {};
-    List<String> lines;
+    List<String> lines = [];
 
     try {
       lines = resultCommand['main']['result'].split("\n").toList();
     } catch (e) {
       logger.error(this.runtimeType.toString(), e.toString());
-      lines = [];
     }
 
-    for (var line in lines) {
-      for (var field in fields) {
-        if (resultCommand.containsKey(field['name'])) {
-          extractResultsFromCommand(result, field, resultCommand);
-        } else {
-          String grep;
-
-          try {
-            grep = field['retrival_value'];
-          } catch (e) {
-            logger.error(this.runtimeType.toString(), e.toString());
-            grep = "";
-          }
-
-          if (line.contains(grep)) {
-            result.putIfAbsent(
-              field['name'],
-              () =>
-                  line.contains(grep)
-                      ? line.substring(line.indexOf(grep) + grep.length + 1)
-                      : "null",
-            );
+    if (lines.isNotEmpty) {
+      for (var line in lines) {
+        for (var field in fields) {
+          if (resultCommand.containsKey(field['name'])) {
+            extractResultsFromCommand(result, field, resultCommand);
+          } else {
+            String grep;
+  
+            try {
+              grep = field['retrival_value'];
+            } catch (e) {
+              logger.error(this.runtimeType.toString(), e.toString());
+              grep = "";
+            }
+  
+            if (line.contains(grep)) {
+              result.putIfAbsent(
+                field['name'],
+                () =>
+                    line.contains(grep)
+                        ? line.substring(line.indexOf(grep) + grep.length + 1)
+                        : "null",
+              );
+            }
           }
         }
       }
+
+      subInventory.add(result);
     }
-    subInventory.add(result);
 
     logger.verbose(this.runtimeType.toString(), subInventory.toString());
 
@@ -325,14 +329,13 @@ class LinuxFormat {
         return "null";
 
       case "PTXT":
-        List<String> txt;
+        List<String> txt = [];
         int line;
 
         try {
           txt = result.split("\n").toList();
         } catch (e) {
           logger.error(this.runtimeType.toString(), e.toString());
-          txt = [];
         }
 
         try {
@@ -345,14 +348,13 @@ class LinuxFormat {
         return (line > 0 && line <= txt.length) ? txt[line - 1] : "null";
 
       case "REGX":
-        List<String> lines;
+        List<String> lines = [];
         RegExp? regex;
 
         try {
           lines = result.split("\n").toList();
         } catch (e) {
           logger.error(this.runtimeType.toString(), e.toString());
-          lines = [];
         }
 
         try {
@@ -362,18 +364,20 @@ class LinuxFormat {
           regex = null;
         }
 
-        for (var line in lines) {
-          if (regex != null && regex.hasMatch(line)) {
-            var match;
-
-            try {
-              match = regex.firstMatch(line);
-            } catch (e) {
-              logger.error(this.runtimeType.toString(), e.toString());
-              match = null;
+        if (lines.isNotEmpty) {
+          for (var line in lines) {
+            if (regex != null && regex.hasMatch(line)) {
+              var match;
+  
+              try {
+                match = regex.firstMatch(line);
+              } catch (e) {
+                logger.error(this.runtimeType.toString(), e.toString());
+                match = null;
+              }
+  
+              return match != null ? match.group(1) : "null";
             }
-
-            return match != null ? match.group(1) : "null";
           }
         }
 
@@ -381,18 +385,19 @@ class LinuxFormat {
 
       case "GREP":
         String grep = retrivalValue;
-        List<String> lines;
+        List<String> lines = [];
 
         try {
           lines = result.split("\n").toList();
         } catch (e) {
           logger.error(this.runtimeType.toString(), e.toString());
-          lines = [];
         }
 
-        for (var line in lines) {
-          if (line.contains(grep)) {
-            return line.substring(line.indexOf(grep) + grep.length + 1);
+        if (lines.isNotEmpty) {
+          for (var line in lines) {
+            if (line.contains(grep)) {
+              return line.substring(line.indexOf(grep) + grep.length + 1);
+            }
           }
         }
 
@@ -411,9 +416,9 @@ class LinuxFormat {
     Map<String, dynamic> options,
   ) {
     List<Map<String, dynamic>> returnValue = [];
-    List<String> list;
+    List<String> list = [];
     String headerLine;
-    List<String> listIndex;
+    List<String> listIndex = [];
 
     try {
       list = result.split("\n");
@@ -422,9 +427,7 @@ class LinuxFormat {
       listIndex.removeWhere((element) => element.isEmpty);
     } catch (e) {
       logger.error(this.runtimeType.toString(), e.toString());
-      list = [];
       headerLine = "";
-      listIndex = [];
     }
 
     Map<String, int> mapIndex = {};
