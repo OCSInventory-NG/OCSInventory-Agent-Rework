@@ -206,32 +206,32 @@ class LinuxFormat {
             extractResultsFromCommand(result, field, resultCommand);
           } else {
             RegExp? regex;
-  
+
             try {
               regex = RegExp(field['retrival_value']);
             } catch (e) {
               logger.error(this.runtimeType.toString(), e.toString());
               regex = null;
             }
-  
+
             if (regex != null && regex.hasMatch(line)) {
               var match;
-  
+
               try {
                 match = regex.firstMatch(line);
               } catch (e) {
                 logger.error(this.runtimeType.toString(), e.toString());
                 match = null;
               }
-  
+
               result.putIfAbsent(field['name'], () => match!.group(1));
             }
           }
         }
-  
+
         separate =
             haveSeparator && (separator.hasMatch(line) || x == lines.length);
-  
+
         if (multiple) {
           if (separate || !haveSeparator) {
             if (result.isNotEmpty) {
@@ -242,7 +242,7 @@ class LinuxFormat {
         } else {
           subInventory.add(result);
         }
-  
+
         x++;
       }
     }
@@ -274,21 +274,18 @@ class LinuxFormat {
             extractResultsFromCommand(result, field, resultCommand);
           } else {
             String grep;
-  
+
             try {
               grep = field['retrival_value'];
             } catch (e) {
               logger.error(this.runtimeType.toString(), e.toString());
               grep = "";
             }
-  
+
             if (line.contains(grep)) {
               result.putIfAbsent(
                 field['name'],
-                () =>
-                    line.contains(grep)
-                        ? line.substring(line.indexOf(grep) + grep.length + 1)
-                        : "null",
+                () => line.substring(line.indexOf(grep) + grep.length + 1),
               );
             }
           }
@@ -368,14 +365,14 @@ class LinuxFormat {
           for (var line in lines) {
             if (regex != null && regex.hasMatch(line)) {
               var match;
-  
+
               try {
                 match = regex.firstMatch(line);
               } catch (e) {
                 logger.error(this.runtimeType.toString(), e.toString());
                 match = null;
               }
-  
+
               return match != null ? match.group(1) : "null";
             }
           }
@@ -508,10 +505,11 @@ class LinuxFormat {
 
         if (list2.isNotEmpty) {
           if (list2.asMap().containsKey(1)) {
-            list2[1] = list2[1].trim();
+            String key;
+            String value = list2.sublist(1).join(":").trim();
 
-            String key = list2[0].contains("\"") ? "" : "\"";
-            String value = list2[1].contains("\"") ? "" : "\"";
+            key = list2[0].contains("\"") ? "" : "\"";
+            value = list2[1].contains("\"") ? "" : "\"";
 
             json +=
                 key +
