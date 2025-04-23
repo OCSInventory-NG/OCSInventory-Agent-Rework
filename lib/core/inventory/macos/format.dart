@@ -39,6 +39,40 @@ class MacOSFormat {
     this.macOSCommand = macOSCommand;
   }
 
+  /// Process transcript variables and return the appropriate value
+  dynamic processTranscriptVariable(dynamic value) {
+    if (value == null) return value;
+    String trimmedValue = value.toString().trim();
+    return transcriptVariables.containsKey(trimmedValue)
+        ? transcriptVariables[trimmedValue]
+        : value;
+  }
+
+  /// Parse JSON data from command result
+  Map<String, dynamic> parseCommandResult(Map<String, dynamic> resultCommand, String element) {
+    try {
+      if (resultCommand[element]['options'] != null &&
+          resultCommand[element]['options'].containsKey('need_format') &&
+          !resultCommand[element]['options']['need_format']) {
+        return jsonDecode(resultCommand[element]['result']);
+      } else {
+        return this.formatJson(resultCommand[element]['result']);
+      }
+    } on FormatException catch (e) {
+      logger.error(this.runtimeType.toString(),
+          "Invalid JSON format for element '$element': ${e.toString()}");
+      return {};
+    } on JsonUnsupportedObjectError catch (e) {
+      logger.error(this.runtimeType.toString(),
+          "Unsupported JSON object in element '$element': ${e.toString()}");
+      return {};
+    } catch (e) {
+      logger.error(this.runtimeType.toString(),
+          "Failed to parse JSON data for element '$element': ${e.toString()}");
+      return {};
+    }
+  }
+
   /// get result of [resultCommand] for each [fields].
   List<dynamic> getByJson(List<dynamic> fields,
       Map<String, dynamic> resultCommand, String commandLine) {
@@ -49,20 +83,7 @@ class MacOSFormat {
     commandLine = commandLine.split(" ")[1];
 
     resultCommand.keys.forEach((element) {
-      try {
-        if (resultCommand[element]['options'] != null &&
-            resultCommand[element]['options'].containsKey('need_format') &&
-            !resultCommand[element]['options']['need_format']) {
-          json[element] = jsonDecode(resultCommand[element]['result']);
-        } else {
-          json[element] = this.formatJson(resultCommand[element]['result']);
-        }
-      } catch (e) {
-        json[element] = null;
-        // wym??
-        logger.verbose(this.runtimeType.toString(),
-            "Failed to parse JSON data for element '$element': ${e.toString()}");
-      }
+      json[element] = parseCommandResult(resultCommand, element);
     });
 
     json["main"] = json["main"][commandLine];
@@ -72,23 +93,16 @@ class MacOSFormat {
         json["main"].forEach((element) {
           result = new Map();
           fields.forEach((field) {
-            // Check if the value is a transcript variable
-            element[field['retrival_value']] = transcriptVariables.containsKey(
-                    element[field['retrival_value']].toString().trim())
-                ? transcriptVariables[
-                    element[field['retrival_value']].toString().trim()]
-                : element[field['retrival_value']];
-            // Check if the value of element[field['retrival_value']] is a map
+            element[field['retrival_value']] = processTranscriptVariable(element[field['retrival_value']]);
+            
             if (element[field['retrival_value']] is Map) {
               element[field['retrival_value']].forEach((key, value) {
-                // Add the sub element to this element
                 element[key] = value;
               });
             }
             if (element[field['retrival_value']] is List) {
               element[field['retrival_value']].forEach((subElement) {
                 subElement.forEach((key, value) {
-                  // Add the sub element to this element
                   element[key] = value;
                 });
               });
@@ -110,14 +124,7 @@ class MacOSFormat {
       } else {
         result = new Map();
         fields.forEach((field) {
-          // Check if the value is a transcript variable
-          json["main"][field['retrival_value']] =
-              transcriptVariables.containsKey(
-                      json["main"][field['retrival_value']].toString().trim())
-                  ? transcriptVariables[
-                      json["main"][field['retrival_value']].toString().trim()]
-                  : json["main"][field['retrival_value']];
-
+          json["main"][field['retrival_value']] = processTranscriptVariable(json["main"][field['retrival_value']]);
           if (json["main"].containsKey(field["retrival_value"])) {
             result.putIfAbsent(field['name'],
                 () => json["main"][field['retrival_value']].toString().trim());
@@ -208,11 +215,34 @@ class MacOSFormat {
     return subInventory;
   }
 
+  /// Parse a line using regex pattern and update the result map
+  void parseLineWithRegex(String line, String pattern, String fieldName, Map<String, dynamic> result) {
+    try {
+      var regex = RegExp(pattern);
+      if (regex.hasMatch(line)) {
+        var match = regex.firstMatch(line);
+        result.putIfAbsent(fieldName, () => match!.group(1));
+      }
+    } on FormatException catch (e) {
+      logger.error(this.runtimeType.toString(),
+          "Invalid regex pattern '$pattern' for field '$fieldName': ${e.toString()}");
+    } catch (e) {
+      logger.error(this.runtimeType.toString(),
+          "Failed to parse line with regex for field '$fieldName': ${e.toString()}");
+    }
+  }
+
   /// get result of [resultCommand] for each [fields].
   List<dynamic> getByRegx(
       List<dynamic> fields, Map<String, dynamic> resultCommand) {
     List<dynamic> subInventory = new List.empty(growable: true);
     Map<String, dynamic> result = new Map();
+    
+    if (!resultCommand.containsKey('main') || resultCommand['main'] == null) {
+      logger.error(this.runtimeType.toString(), "Missing or null 'main' in resultCommand");
+      return subInventory;
+    }
+
     var lines = resultCommand['main']['result'].split("\n").toList();
 
     if (resultCommand['main']['options'] != null &&
@@ -223,8 +253,13 @@ class MacOSFormat {
       bool separate = false;
       if (resultCommand['main']['options'] != null &&
           resultCommand['main']['options'].containsKey('separator')) {
-        separator = RegExp(resultCommand['main']['options']['separator']);
-        haveSeparator = true;
+        try {
+          separator = RegExp(resultCommand['main']['options']['separator']);
+          haveSeparator = true;
+        } catch (e) {
+          logger.error(this.runtimeType.toString(),
+              "Invalid separator regex pattern: ${e.toString()}");
+        }
       }
       int x = 1;
       for (int i = 0; i < lines.length; i++) {
@@ -238,11 +273,12 @@ class MacOSFormat {
         }
 
         for (var field in fields) {
-          var regex = RegExp(field['retrival_value']);
-          if (regex.hasMatch(lines[i])) {
-            var match = regex.firstMatch(lines[i]);
-            result.putIfAbsent(field['name'], () => match!.group(1));
+          if (field['retrival_value'] == null) {
+            logger.error(this.runtimeType.toString(),
+                "Missing retrival_value for field in multiple mode");
+            continue;
           }
+          parseLineWithRegex(lines[i], field['retrival_value'], field['name'], result);
         }
         if ((separator != null && separator.hasMatch(lines[i])) ||
             x == lines.length) {
@@ -268,6 +304,11 @@ class MacOSFormat {
       for (var line in lines) {
         for (var field in fields) {
           if (resultCommand.containsKey(field['name'])) {
+            if (field['retrival_output'] == null || field['retrival_value'] == null) {
+              logger.error(this.runtimeType.toString(),
+                  "Missing retrival_output or retrival_value for field ${field['name']}");
+              continue;
+            }
             result.putIfAbsent(
                 field['name'],
                 () => this.getResult(
@@ -275,11 +316,12 @@ class MacOSFormat {
                     resultCommand[field['name']]['result'],
                     field['retrival_value']));
           } else {
-            var regex = RegExp(field['retrival_value']);
-            if (regex.hasMatch(line)) {
-              var match = regex.firstMatch(line);
-              result.putIfAbsent(field['name'], () => match!.group(1));
+            if (field['retrival_value'] == null) {
+              logger.error(this.runtimeType.toString(),
+                  "Missing retrival_value for field ${field['name']}");
+              continue;
             }
+            parseLineWithRegex(line, field['retrival_value'], field['name'], result);
           }
         }
       }
