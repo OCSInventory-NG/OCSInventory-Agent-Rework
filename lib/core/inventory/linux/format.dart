@@ -181,10 +181,11 @@ class LinuxFormat {
             result = new Map();
           }
         }
-      } else {
-        subInventory.add(result);
       }
       x++;
+    }
+    if (!multiple && result.isNotEmpty) {
+        subInventory.add(result);
     }
 
     logger.verbose(this.runtimeType.toString(), subInventory.toString());
