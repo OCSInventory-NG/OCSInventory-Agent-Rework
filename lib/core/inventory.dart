@@ -113,8 +113,7 @@ class Inventory {
 
   /// Check if API is working and generate a token if it doesn't exist.
   Future<bool> checkApi() async {
-    // Get data from inventory.json file
-    List<String> configFields = ["username", "password", "token"];
+    List<String> requiredFields = ["username", "password"];
     String username = "", password = "", localToken = "";
 
     // Check OCS API status
@@ -123,17 +122,20 @@ class Inventory {
     dynamic responseGet = await sendApiRequest("GET", baseUrl);
 
     try {
-      List<String> inventoryData = getInventoryData(configFields);
-
-      if (inventoryData.length == 3) {
+      List<String> inventoryData = getInventoryData(requiredFields);
+      if (inventoryData.length == 2) {
         username = inventoryData[0];
         password = inventoryData[1];
-        localToken = inventoryData[2];
-
-        await generateToken(username, password, localToken);
+      } else {
+        throw ("Invalid number of config fields.");
       }
+
+      // Optional retrieval of the token (can be empty on first run)
+      localToken = config.getInventoryConfig("token") ?? "";
+
+      await generateToken(username, password, localToken);
     } catch (e) {
-      logError("Configuration missing fields: $e");
+      logError("Configuration error: $e");
     }
 
     if (responseGet != null && responseGet["status_code"] == 200) {
@@ -332,8 +334,16 @@ class Inventory {
   /// Get the remote template values to create or update the local template.
   Future<bool> getRemoteTemplate(Map<String, dynamic> body) async {
     // Get templates data
-    var remoteInfo = await getRemoteTemplateInfo(body);
-    var localInfo = getLocalTemplateInfo();
+    var remoteInfo, localInfo;
+
+    try {
+      remoteInfo = await getRemoteTemplateInfo(body);
+      localInfo = getLocalTemplateInfo();
+    } catch (e) {
+      logError("Unable to retrieve local or remote template: $e");
+
+      return false;
+    }
 
     if (remoteInfo["return"] != "false" || localInfo["return"] != "false") {
       var compareResult = compareTemplate(localInfo, remoteInfo);
@@ -486,23 +496,28 @@ class Inventory {
       Map<String, String> localInfo, Map<String, String> remoteInfo) {
     logInfo("Comparing templates...");
 
-    // Compare both templates info
-    if (remoteInfo["id"] == localInfo["id"]) {
-      logInfo("Local template exists on the server.");
+    try {
+      // Compare both templates info
+      if (remoteInfo["id"] == localInfo["id"]) {
+        logInfo("Local template exists on the server.");
 
-      if (remoteInfo["last_update"] == localInfo["last_update"]) {
-        logInfo("Local template is up-to-date.");
+        if (remoteInfo["last_update"] == localInfo["last_update"]) {
+          logInfo("Local template is up-to-date.");
 
-        return 0;
+          return 0;
+        } else {
+          logInfo("Local template is outdated.");
+
+          return 1;
+        }
       } else {
-        logInfo("Local template is outdated.");
+        logInfo("Local template does not exist on the server.");
 
-        return 1;
+        return 2;
       }
-    } else {
-      logInfo("Local template does not exist on the server.");
-
-      return 2;
+    } catch (e) {
+      logError("Error comparing template info: $e");
+      return -1;
     }
   }
 
@@ -539,59 +554,66 @@ class Inventory {
   /// with a [os] verification and format it in json.
   Future<Map<String, dynamic>> getInventoryResult(
       Map<String, dynamic> template, String os) async {
-    var format;
-
-    // Check the os platform
-    if (os == "LIN") {
-      format = linuxFormat;
-    } else if (template["os"] == "WIN" && Platform.isWindows) {
-      format = windowsFormat;
-    } else if (template["os"] == "MAC" && Platform.isMacOS) {
-      format = macOSFormat;
-    } else {
-      logError("Unsupported OS detected.");
-    }
-
     Map<String, dynamic> inventoryResult = {};
-    List<dynamic> sections = template['sections'];
+    var format;
+    List<dynamic> sections = [];
 
-    for (var section in sections) {
-      Map<String, dynamic> result = await getResult(os, template, section);
-      var valueTarget;
-
-      // Choose the retrieval format
-      switch (section['retrival_output']) {
-        case "TBLE":
-          valueTarget = format.getByArray(section["fields"], result);
-          break;
-
-        case "JSON":
-          if (os == "MAC") {
-            valueTarget =
-                format.getByJson(section["fields"], result, section["target"]);
-          } else {
-            valueTarget = format.getByJson(section["fields"], result);
-          }
-          break;
-
-        case "PTXT":
-          valueTarget = await format.getByPtxt(section["fields"], result);
-          break;
-
-        case "REGX":
-          valueTarget = format.getByRegx(section["fields"], result);
-          break;
-
-        case "GREP":
-          valueTarget = format.getByGrep(section["fields"], result);
-          break;
-
-        default:
-          valueTarget = null;
-          break;
+    try {
+      // Check the os platform
+      if (os == "LIN") {
+        format = linuxFormat;
+      } else if (template["os"] == "WIN" && Platform.isWindows) {
+        format = windowsFormat;
+      } else if (template["os"] == "MAC" && Platform.isMacOS) {
+        format = macOSFormat;
+      } else {
+        logError("Unsupported OS detected.");
       }
 
-      inventoryResult.putIfAbsent(section['name'], () => valueTarget);
+      sections = template['sections'];
+    } catch (e) {
+      logError("Error while assigning format or reading sections: $e");
+    }
+
+    if (sections.isNotEmpty) {
+      for (var section in sections) {
+        Map<String, dynamic> result = await getResult(os, template, section);
+        var valueTarget;
+
+        // Choose the retrieval format
+        switch (section['retrival_output']) {
+          case "TBLE":
+            valueTarget = format.getByArray(section["fields"], result);
+            break;
+
+          case "JSON":
+            if (os == "MAC") {
+              valueTarget = format.getByJson(
+                  section["fields"], result, section["target"]);
+            } else {
+              valueTarget = format.getByJson(section["fields"], result);
+            }
+            break;
+
+          case "PTXT":
+            valueTarget = await format.getByPtxt(section["fields"], result);
+            break;
+
+          case "REGX":
+            valueTarget = format.getByRegx(section["fields"], result);
+            break;
+
+          case "GREP":
+            valueTarget = format.getByGrep(section["fields"], result);
+            break;
+
+          default:
+            valueTarget = null;
+            break;
+        }
+
+        inventoryResult.putIfAbsent(section['name'], () => valueTarget);
+      }
     }
 
     return inventoryResult;
@@ -602,27 +624,32 @@ class Inventory {
       Map<String, dynamic> template, Map<String, dynamic> section) async {
     late var command;
     Map<String, dynamic> result = {};
-
-    // Check the os platform
-    if (os == "LIN") {
-      command = this.linuxCommand;
-    } else if (template["os"] == "WIN" && Platform.isWindows) {
-      command = this.windowsCommand;
-    } else if (template["os"] == "MAC" && Platform.isMacOS) {
-      command = this.macOSCommand;
-    } else {
-      logError("Unsupported OS detected.");
-    }
-
     Map<String, dynamic> main = {};
     Map<String, dynamic> options = {};
+    String mainRes;
 
-    if (section['options'] != null) {
-      options = section['options'];
+    try {
+      // Check the os platform
+      if (os == "LIN") {
+        command = this.linuxCommand;
+      } else if (template["os"] == "WIN" && Platform.isWindows) {
+        command = this.windowsCommand;
+      } else if (template["os"] == "MAC" && Platform.isMacOS) {
+        command = this.macOSCommand;
+      } else {
+        logError("Unsupported OS detected.");
+      }
+
+      if (section['options'] != null) {
+        options = section['options'];
+      }
+
+      mainRes = await command.getResult(
+          section["target"], section['retrival_method']);
+    } catch (e) {
+      logError("Unable to get results: $e");
+      return result;
     }
-
-    String mainRes =
-        await command.getResult(section["target"], section['retrival_method']);
 
     main.putIfAbsent('name', () => section['name']);
     main.putIfAbsent('type', () => section['retrival_output']);
@@ -635,8 +662,15 @@ class Inventory {
 
     for (var field in fieldOver) {
       Map<String, dynamic> sub = {};
-      String res = await command.getResult(
-          field["new_target"], field['retrival_method']);
+      String res;
+
+      try {
+        res = await command.getResult(
+            field["new_target"], field['retrival_method']);
+      } catch (e) {
+        logError("Error processing field override: $e");
+        return result;
+      }
 
       sub.putIfAbsent('name', () => field['name']);
       sub.putIfAbsent('type', () => field['retrival_output']);
@@ -770,26 +804,16 @@ class Inventory {
               logInfo("Base64 file found.");
               var fileBase64 = jsonDecode(inventoryBase64.readAsStringSync());
 
-              sectionJson.keys.forEach((newKey) {
-                fileBase64.keys.forEach((oldKey) {
-                  if (newKey == oldKey &&
-                      sectionJson[newKey] == fileBase64[oldKey]) {
-                    logVerbose(sprintf(
-                        "%s section has not changed since last inventory.",
-                        [newKey.toString()]));
-                  } else {
-                    logVerbose(sprintf(
-                        "%s section will be updated.", [newKey.toString()]));
-                    updatedInventory[newKey] =
-                        content["template_inventory"][newKey];
-                  }
-                });
-
+              sectionJson.forEach((newKey, newValue) {
                 if (!fileBase64.containsKey(newKey)) {
-                  logVerbose(sprintf("%s section added to the inventory.",
-                      [newKey.toString()]));
-                  updatedInventory[newKey] =
-                      content["template_inventory"][newKey];
+                  logVerbose(sprintf("%s section added to the inventory.", [newKey]));
+                  updatedInventory[newKey] = content["template_inventory"][newKey];
+                } else if (fileBase64[newKey] != newValue) {
+                  logVerbose(sprintf("%s section will be updated.", [newKey]));
+                  updatedInventory[newKey] = content["template_inventory"][newKey];
+                } else {
+                  logVerbose(sprintf(
+                      "%s section has not changed since last inventory.", [newKey]));
                 }
               });
 
