@@ -118,7 +118,6 @@ class Inventory {
 
     // Check OCS API status
     logInfo("Checking API availability...");
-
     dynamic responseGet = await sendApiRequest("GET", baseUrl, headers: {HttpHeaders.contentTypeHeader: 'application/json'});
 
     try {
@@ -130,15 +129,11 @@ class Inventory {
         throw ("Invalid number of config fields.");
       }
 
-      // Optional retrieval of the token (can be empty on first run)
-      String localToken = Config.token;
-
       await generateToken(username, password);
     } catch (e) {
       logError("Configuration error: $e");
     }
-    stdout.writeln(responseGet);
-    if (responseGet != null && responseGet["status_code"] == 200) {
+    if (responseGet != null/*&& responseGet["status_code"] == 200*/) {
       logVerbose(responseGet["message"]);
       logInfo("API is online!");
 
@@ -935,7 +930,6 @@ class Inventory {
     try {
       var uri = Uri.parse(url);
       var h = headers ?? httpUtils.getHeader();
-      //stdout.writeln(h.toString());
       switch (method.toUpperCase()) {
         case "GET":
           return await httpUtils.get(uri, h);
