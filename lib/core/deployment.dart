@@ -87,7 +87,7 @@ class Deployment {
 
     // Check if the URL is reachable
     var response = await httpUtils.get(
-        Uri.parse(url + "/deployment/results/"), httpUtils.getHeader(config));
+        Uri.parse(url + "/deployment/results/"), httpUtils.getHeader());
     if (response["status_code"] == 200) {
       logger.info(
           this.runtimeType.toString(), "Deployment endpoint is reachable.");
@@ -104,7 +104,7 @@ class Deployment {
     // API call: Check if there is assigned packages
     var response = await httpUtils.get(
         Uri.parse(url + "/deployment/results/?asset=$assetID&status=1"),
-        httpUtils.getHeader(config));
+        httpUtils.getHeader());
     // VERBOSE: show result of the query in verbose mode
     logger.verbose(this.runtimeType.toString(), response["message"]);
 
@@ -120,7 +120,7 @@ class Deployment {
         var responseNotified = await httpUtils.patch(
             Uri.parse(
                 url + "/deployment/results/" + element["id"].toString() + "/"),
-            httpUtils.getHeader(config),
+            httpUtils.getHeader(),
             "{\"status\": 2, \"comment\": \"Notified\"}");
         logger.verbose(
             this.runtimeType.toString(), responseNotified["message"]);
@@ -145,7 +145,7 @@ class Deployment {
             Uri.parse(url +
                 "/deployment/actions/?package=" +
                 element["package"].toString()),
-            httpUtils.getHeader(config));
+            httpUtils.getHeader());
         // VERBOSE: show result of the query in verbose mode
         logger.verbose(this.runtimeType.toString(), response["message"]);
 
@@ -319,7 +319,7 @@ class Deployment {
           // API call: send success to server if the package is installed
           var responseSuccess = await httpUtils.patch(
               Uri.parse(url + "/deployment/results/$id/"),
-              httpUtils.getHeader(config),
+              httpUtils.getHeader(),
               "{\"status\": 0, \"comment\": \"Success\"}");
           logger.verbose(
               this.runtimeType.toString(), responseSuccess["message"]);
@@ -349,7 +349,7 @@ class Deployment {
           // API call: send error to server if the package isn't installed
           var responseFail = await httpUtils.patch(
               Uri.parse(url + "/deployment/results/$id/"),
-              httpUtils.getHeader(config),
+              httpUtils.getHeader(),
               "{\"status\": 3, \"comment\": ${jsonEncode(formattedErrorComment)}}");
           logger.verbose(this.runtimeType.toString(), responseFail["message"]);
           if (responseFail["status_code"] == 200) {

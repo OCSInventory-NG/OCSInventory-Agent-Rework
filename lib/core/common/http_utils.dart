@@ -38,9 +38,9 @@ class HTTPUtils {
   }
 
   /// Return header in json format.
-  Map<String, String> getHeader(dynamic config) {
+  Map<String, String> getHeader() {
     // Get data from inventory.json file
-    String token = config.getInventoryConfig("token");
+    String token = Config.token;
 
     return {
       HttpHeaders.contentTypeHeader: 'application/json',

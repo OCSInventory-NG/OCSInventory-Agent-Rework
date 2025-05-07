@@ -27,353 +27,390 @@ class LinuxFormat {
   late LinuxCommand linuxCommand;
 
   /// Constructor.
-  LinuxFormat(Logger logger, LinuxCommand linuxCommand) {
-    this.logger = logger;
-    this.linuxCommand = linuxCommand;
-  }
+  LinuxFormat(this.logger, this.linuxCommand);
 
-  /// get result of [resultCommand] for each [fields].
-  List<dynamic> getByArray(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    List<Map<String, dynamic>> arrayResult = this.formatArray(
-        resultCommand['main']['result'], resultCommand['main']['options']);
-    List<dynamic> subinventory = new List.empty(growable: true);
+  /// Get the sub-inventory of [resultCommand] for each [fields] based on [method].
+  List<dynamic> getByMethod(
+    String method,
+    List<dynamic> fields,
+    Map<String, dynamic> resultCommand,
+  ) {
+    final resultCommandData;
+    late dynamic mainOptions;
+
+    if (method == "TBLE" || method == "REGX") {
+      resultCommandData = this.getResultCommandData(resultCommand, true);
+      mainOptions = resultCommandData['mainOptions'];
+    } else {
+      resultCommandData = this.getResultCommandData(resultCommand, false);
+    }
+
+    final mainResult = resultCommandData['mainResult'];
+    final mainResultValid = resultCommandData['mainResultValid'];
+    List<dynamic> args = [];
     Map<String, dynamic> result;
+    List<dynamic> subInventory = [];
 
-    arrayResult.forEach((element) {
-      result = new Map();
-      for (var field in fields) {
-        if (resultCommand.containsKey(field['name'])) {
-          result.putIfAbsent(
-              field['name'],
-              () => this.getResult(
-                  field['retrival_output'],
-                  resultCommand[field['name']]['result'],
-                  field['retrival_value']));
-        } else {
-          String index = field["retrival_value"];
+    if (!mainResultValid) return subInventory;
 
-          if (element.containsKey(index)) {
-            result.putIfAbsent(field['name'], () => element[index]);
-          } else {
-            result.putIfAbsent(field['name'], () => "null");
+    switch (method) {
+      case "TBLE":
+        args = this.formatArray(mainResult, mainOptions);
+        break;
+
+      case "JSON":
+        args = [this.formatJson(mainResult)];
+        break;
+
+      case "REGX":
+        args = formatRegx(mainResult, mainOptions);
+
+      case "PTXT":
+      case "GREP":
+        args = mainResult.split("\n").toList();
+        break;
+
+      default:
+        logger.error(this.runtimeType.toString(), "Méthode inconnue : $method");
+        return subInventory;
+    }
+
+    for (var arg in args) {
+      result = {};
+
+      this.processFieldRetrival(method, fields, resultCommand, result, arg);
+      if (result.isNotEmpty) subInventory.add(result);
+    }
+
+    logger.verbose(this.runtimeType.toString(), subInventory.toString());
+
+    return subInventory;
+  }
+
+  /// Extract the result and options from [resultCommand].
+  Map<String, dynamic> getResultCommandData(
+      Map<String, dynamic> resultCommand, bool needOptions) {
+    dynamic mainResult = resultCommand['main']?['result'];
+    dynamic mainOptions;
+
+    if (needOptions) mainOptions = resultCommand['main']?['options'];
+
+    bool mainResultValid = !(mainResult == null || mainResult.isEmpty);
+
+    return {
+      'mainResult': mainResult,
+      if (needOptions) 'mainOptions': mainOptions,
+      'mainResultValid': mainResultValid,
+    };
+  }
+
+  void processFieldRetrival(
+      String method, fields, resultCommand, result, dynamic arg) {
+    dynamic retrivalValue;
+    late bool condition;
+    late dynamic function;
+
+    fields.forEach((field) {
+      switch (method) {
+        case "TBLE":
+          retrivalValue = field['retrival_value'] ?? "";
+          condition = true;
+          function =
+              arg.containsKey(retrivalValue) ? arg[retrivalValue] : "null";
+          break;
+
+        case "JSON":
+          condition = true;
+          function = arg[field['retrival_value']];
+          break;
+
+        case "REGX":
+          try {
+            retrivalValue = RegExp(field['retrival_value']);
+          } catch (e) {
+            logger.error(this.runtimeType.toString(), e.toString());
+            retrivalValue = null;
           }
-        }
+
+          dynamic match = retrivalValue.firstMatch(arg);
+          condition = retrivalValue != null && retrivalValue.hasMatch(arg);
+          function = match != null ? match.group(1) : "null";
+          break;
+
+        case "PTXT":
+          try {
+            retrivalValue = int.parse(field['retrival_value']);
+          } catch (e) {
+            logger.error(this.runtimeType.toString(), e.toString());
+            retrivalValue = 0;
+          }
+
+          condition = true;
+          function = (retrivalValue > 0 && retrivalValue <= arg.length)
+              ? arg[retrivalValue - 1]
+              : "null";
+          break;
+
+        case "GREP":
+          retrivalValue = field['retrival_value'] ?? "";
+          condition = arg.contains(retrivalValue);
+          function = arg
+              .substring(arg.indexOf(retrivalValue) + retrivalValue.length + 1);
+          break;
+
+        default:
+          logger.error(
+              this.runtimeType.toString(), "Méthode inconnue : $method");
+          break;
       }
-      subinventory.add(result);
+
+      this.getSubInventoryResult(
+          resultCommand, result, field, condition, function);
     });
-
-    logger.verbose(this.runtimeType.toString(), subinventory.toString());
-
-    return subinventory;
   }
 
-  /// get result of [resultCommand] for each [fields].
-  List<dynamic> getByJson(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    var json = this.formatJson(resultCommand['main']['result']);
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
-
-    for (var field in fields) {
-      if (resultCommand.containsKey(field['name'])) {
+  /// Build sub-inventory data in [result] based on [field] and [resultCommand] with [condition] and [function].
+  void getSubInventoryResult(
+      Map<String, dynamic> resultCommand,
+      Map<String, dynamic> result,
+      dynamic field,
+      bool condition,
+      dynamic function) {
+    if (resultCommand.containsKey(field['name'])) {
+      result.putIfAbsent(
+          field['name'],
+          () => this.getResult(
+                field['retrival_output'] ?? "null",
+                resultCommand[field['name']]?['result'] ?? "null",
+                field['retrival_value'] ?? "null",
+              ));
+    } else {
+      if (condition) {
         result.putIfAbsent(
-            field['name'],
-            () => this.getResult(
-                field['retrival_output'],
-                resultCommand[field['name']]['result'],
-                field['retrival_value']));
-      } else {
-        result.putIfAbsent(field['name'], () => json[field['retrival_value']]);
+          field['name'],
+          () => function,
+        );
       }
     }
-    subInventory.add(result);
-
-    logger.verbose(this.runtimeType.toString(), subInventory.toString());
-
-    return subInventory;
-  }
-
-  /// get result of [resultCommand] for each [fields].
-  Future<List<dynamic>> getByPtxt(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) async {
-    var txt = resultCommand['main']['result'].split("\n").toList();
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
-
-    for (var field in fields) {
-      if (resultCommand.containsKey(field['name'])) {
-        result.putIfAbsent(
-            field['name'],
-            () => this.getResult(
-                field['retrival_output'],
-                resultCommand[field['name']]['result'],
-                field['retrival_value']));
-      } else {
-        int line = int.parse(field['retrival_value']);
-        result.putIfAbsent(field['name'], () => txt[line - 1]);
-      }
-    }
-    subInventory.add(result);
-
-    logger.verbose(this.runtimeType.toString(), subInventory.toString());
-
-    return subInventory;
-  }
-
-  /// get result of [resultCommand] for each [fields].
-  List<dynamic> getByRegx(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    var lines = resultCommand['main']['result'].split("\n").toList();
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
-
-    bool multiple = false;
-    var separator;
-    bool haveSeparator = false;
-    bool separate = false;
-
-    if (resultCommand['main']['options'] != null &&
-        resultCommand['main']['options'].containsKey('multiple') &&
-        resultCommand['main']['options']['multiple']) {
-      multiple = true;
-    }
-    if (resultCommand['main']['options'] != null &&
-        resultCommand['main']['options'].containsKey('separator')) {
-      separator = RegExp(resultCommand['main']['options']['separator']);
-      haveSeparator = true;
-    }
-
-    int x = 1;
-    for (var line in lines) {
-      for (var field in fields) {
-        if (resultCommand.containsKey(field['name'])) {
-          result.putIfAbsent(
-              field['name'],
-              () => this.getResult(
-                  field['retrival_output'],
-                  resultCommand[field['name']]['result'],
-                  field['retrival_value']));
-        } else {
-          var regex = RegExp(field['retrival_value']);
-          if (regex.hasMatch(line)) {
-            var match = regex.firstMatch(line);
-            result.putIfAbsent(field['name'], () => match!.group(1));
-          }
-        }
-      }
-      if (multiple) {
-        if ((separator != null && separator.hasMatch(line) ||
-            x == lines.length)) {
-          separate = true;
-        }
-        if (haveSeparator) {
-          if (separate) {
-            if (result.isNotEmpty) {
-              subInventory.add(result);
-              result = new Map();
-            }
-            separate = false;
-          }
-        } else {
-          if (result.isNotEmpty) {
-            subInventory.add(result);
-            result = new Map();
-          }
-        }
-      } else {
-        subInventory.add(result);
-      }
-      x++;
-    }
-
-    logger.verbose(this.runtimeType.toString(), subInventory.toString());
-
-    return subInventory;
-  }
-
-  /// get result of [resultCommand] for each [fields].
-  List<dynamic> getByGrep(
-      List<dynamic> fields, Map<String, dynamic> resultCommand) {
-    var lines = resultCommand['main']['result'].split("\n").toList();
-    List<dynamic> subInventory = new List.empty(growable: true);
-    Map<String, dynamic> result = new Map();
-
-    for (var line in lines) {
-      for (var field in fields) {
-        if (resultCommand.containsKey(field['name'])) {
-          result.putIfAbsent(
-              field['name'],
-              () => this.getResult(
-                  field['retrival_output'],
-                  resultCommand[field['name']]['result'],
-                  field['retrival_value']));
-        } else {
-          var grep = field['retrival_value'];
-          if (line.contains(grep)) {
-            result.putIfAbsent(field['name'],
-                () => line.substring(line.indexOf(grep) + grep.length + 1));
-          }
-        }
-      }
-    }
-    subInventory.add(result);
-
-    logger.verbose(this.runtimeType.toString(), subInventory.toString());
-
-    return subInventory;
   }
 
   String? getResult(String type, String result, retrivalValue) {
     switch (type) {
       case "JSON":
-        var json = this.formatJson(result);
-        return json[retrivalValue];
+        if (result.isNotEmpty) {
+          var json = this.formatJson(result);
+          return json[retrivalValue];
+        }
+
+        return "null";
 
       case "PTXT":
-        var txt = result.split("\n").toList();
-        int line = int.parse(retrivalValue);
-        return txt[line - 1];
+        List<String> txt = [];
+        int line;
+
+        try {
+          txt = result.split("\n").toList();
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+        }
+
+        try {
+          line = int.parse(retrivalValue);
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          line = 0;
+        }
+
+        return (line > 0 && line <= txt.length) ? txt[line - 1] : "null";
 
       case "REGX":
-        var lines = result.split("\n").toList();
-        var regex = RegExp(retrivalValue);
-        for (var line in lines) {
-          if (regex.hasMatch(line)) {
-            var match = regex.firstMatch(line);
-            return match!.group(1);
+        List<String> lines = [];
+        RegExp? regex;
+
+        try {
+          lines = result.split("\n").toList();
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+        }
+
+        try {
+          regex = RegExp(retrivalValue);
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+          regex = null;
+        }
+
+        if (lines.isNotEmpty) {
+          for (var line in lines) {
+            if (regex != null && regex.hasMatch(line)) {
+              var match;
+
+              try {
+                match = regex.firstMatch(line);
+              } catch (e) {
+                logger.error(this.runtimeType.toString(), e.toString());
+                match = null;
+              }
+
+              return match != null ? match.group(1) : "null";
+            }
           }
         }
 
         break;
+
       case "GREP":
-        var lines = result.split("\n").toList();
         String grep = retrivalValue;
-        for (var line in lines) {
-          if (line.contains(grep)) {
-            return line.substring(line.indexOf(grep) + grep.length + 1);
+        List<String> lines = [];
+
+        try {
+          lines = result.split("\n").toList();
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), e.toString());
+        }
+
+        if (lines.isNotEmpty) {
+          for (var line in lines) {
+            if (line.contains(grep)) {
+              return line.substring(line.indexOf(grep) + grep.length + 1);
+            }
           }
         }
 
         break;
+
       default:
         return "null";
     }
+
     return null;
   }
 
-  /// Format [result] text to a list of json.
+  /// Format [result] string to a list of json.
   List<Map<String, dynamic>> formatArray(
-      String result, Map<String, dynamic> options) {
-    List<String> list = result.split("\n");
+    String result,
+    Map<String, dynamic>? options,
+  ) {
+    final parsedLists = this.getArrayHeaders(result);
+    final resultRows = parsedLists['rows']!;
+    final headersList = parsedLists['headers']!;
+    final Valid = this.areListsValid(options, resultRows, headersList);
+    final useIndex = Valid['useIndex']!;
+    final listsValid = Valid['listsValid']!;
+    final jsonResult = listsValid
+        ? this.convertRowsToJson(resultRows, headersList, useIndex)
+        : <Map<String, dynamic>>[];
 
-    late String headerLine;
-    late List<String> listIndex;
-
-    if (options.containsKey("use_index") && options['use_index']) {
-      headerLine = list[0];
-      list.removeAt(0);
-      listIndex = headerLine.split(" ");
-      listIndex.removeWhere((element) => element == "");
-    } else {
-      list.removeAt(0);
-    }
-
-    //print(headerLine);
-    Map<String, int> mapIndex = new Map<String, int>();
-    List<int> listLines = [];
-    List<Map<String, dynamic>> returnValue = [];
-
-    if (options.containsKey("use_index") && options['use_index']) {
-      int max = 0;
-      listIndex.forEach((element) {
-        int index = headerLine.indexOf(element, max);
-        max = index;
-        mapIndex.putIfAbsent(element, () => index);
-        listLines.add(index);
-      });
-
-      list.forEach((element) {
-        Map<String, dynamic> lineJson = new Map<String, dynamic>();
-        mapIndex.forEach((key, value) {
-          int start = listLines[listLines.indexOf(value)];
-          int? after;
-          if (listLines.indexOf(value) + 1 >= listLines.length) {
-            after = null;
-          } else {
-            after = listLines[listLines.indexOf(value) + 1];
-          }
-          String lineValue = element.substring(start, after);
-          lineValue = lineValue.replaceAll(new RegExp(r'[\s]+$'), '');
-
-          lineJson.putIfAbsent(key, () => lineValue);
-        });
-        returnValue.add(lineJson);
-      });
-    } else {
-      list.forEach((element) {
-        Map<String, dynamic> lineJson = new Map<String, dynamic>();
-        var test = element.split(' ');
-        test.removeWhere((element2) => element2 == "");
-        int index = 0;
-        test.forEach((element) {
-          lineJson.putIfAbsent(index.toString(), () => element);
-          index++;
-        });
-        returnValue.add(lineJson);
-      });
-    }
-
-    return returnValue;
+    return jsonResult;
   }
 
-  /// format result [txt] to json.
-  Map<String, dynamic> formatJson(String txt) {
-    String json = "{\n";
+  /// Extracts headers from the [result] string.
+  Map<String, List<String>> getArrayHeaders(result) {
+    try {
+      List<String> resultRows = result.split("\n");
+      List<String> headersList = resultRows.removeAt(0).split(RegExp(r'\s+'));
 
-    var list = txt.split("\n");
-    list.removeWhere((element) => element == "");
-    list.removeWhere((element) => element == "{");
-    list.removeWhere((element) => element == "}");
+      return {
+        'rows': resultRows,
+        'headers': headersList,
+      };
+    } catch (e) {
+      logger.error(this.runtimeType.toString(), e.toString());
 
-    int n = 1;
+      return {
+        'rows': [],
+        'headers': [],
+      };
+    }
+  }
 
-    list.forEach((element) {
-      //element = element.replaceAll(new RegExp(r"^ *"), '');
-      element = element.replaceAll(new RegExp(r"^\s*"), '');
+  /// Check the use of index based on [options].
+  /// Check the validity of [resultRows] and [headersList].
+  Map<String, bool> areListsValid(Map<String, dynamic>? options,
+      List<String> resultRows, List<String> headersList) {
+    bool useIndex = options != null && options['use_index'] == true;
 
-      var list2 = element.split(":");
+    return {
+      'useIndex': useIndex,
+      'listsValid':
+          resultRows.isNotEmpty && (headersList.isNotEmpty || !useIndex),
+    };
+  }
 
-      if (list2.asMap().containsKey(1)) {
-        //list2[1] = list2[1].replaceAll(new RegExp(r"^ *"), '');
-        list2[1] = list2[1].replaceAll(new RegExp(r"^\s*"), '');
-        list2[1] = list2[1].replaceAll(new RegExp(r"\s*$"), '');
+  /// Convert [resultRows] to json format.
+  List<Map<String, dynamic>> convertRowsToJson(
+      List<String> resultRows, List<String> headersList, bool useIndex) {
+    List<String> resultFields;
+    Map<String, dynamic> jsonLine;
+    List<Map<String, dynamic>> jsonResult = [];
 
-        String sep1;
-        String sep2;
+    resultRows.forEach((row) {
+      resultFields = row.split(RegExp(r'\s+'));
+      jsonLine = {};
 
-        if (list2[0].contains("\"")) {
-          sep1 = "";
-        } else {
-          sep1 = "\"";
-        }
+      resultFields.asMap().forEach((i, field) {
+        String key = useIndex ? headersList[i] : i.toString();
 
-        if (list2[1].contains("\"")) {
-          sep2 = "";
-        } else {
-          sep2 = "\"";
-        }
+        jsonLine.putIfAbsent(key, () => field);
+      });
 
-        if (n < list.length) {
-          json += sep1 + list2[0] + "$sep1: $sep2" + list2[1] + "$sep2,\n";
-        } else {
-          json += sep1 + list2[0] + "$sep1: $sep2" + list2[1] + "$sep2\n";
-        }
-      }
-      n++;
+      jsonResult.add(jsonLine);
     });
-    json += "}";
 
-    return jsonDecode(json);
+    return jsonResult;
+  }
+
+  /// Format [txt] to a valid json.
+  Map<String, dynamic> formatJson(String txt) {
+    Map<String, dynamic> result = {};
+    List<String> lines = txt.split(RegExp(r'\r\n|\n|\r'));
+    late String key;
+    late String rawValue;
+    late dynamic value;
+    late int colonIndex;
+
+    for (var line in lines) {
+      line = line.trim();
+      if (line.isEmpty || line == "{" || line == "}") continue;
+
+      colonIndex = line.indexOf(":");
+      if (colonIndex == -1) continue;
+
+      
+      key = line.substring(0, colonIndex).trim();
+      rawValue = line.substring(colonIndex + 1).trim();
+
+      if (rawValue.toLowerCase() == 'true' || rawValue.toLowerCase() == 'false') {
+        value = rawValue.toLowerCase() == 'true';
+      } else if (int.tryParse(rawValue) != null) {
+        value = int.parse(rawValue);
+      } else {
+        value = rawValue;
+      }
+
+      result[key] = value;
+    }
+
+    return result;
+  }
+
+  /// Format [mainResult] based on [mainOptions].
+  List<String> formatRegx(mainResult, mainOptions) {
+    RegExp? blockSeparator;
+    final rawSeparator = mainOptions['separator'];
+    bool multiple = mainOptions['multiple'] ?? false;
+    late List<String> blocksList;
+
+    if (rawSeparator is String && rawSeparator.trim().isNotEmpty)
+      blockSeparator = RegExp(rawSeparator);
+
+    blocksList = blockSeparator != null
+        ? mainResult.split(blockSeparator)
+        : blocksList = [mainResult];
+
+    if (multiple)
+      blocksList = blocksList.expand((block) => block.split('\n')).toList();
+
+    return blocksList;
   }
 }

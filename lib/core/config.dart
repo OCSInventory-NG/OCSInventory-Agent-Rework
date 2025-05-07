@@ -34,6 +34,8 @@ class Config {
   late File core;
   late File template;
 
+  static late String token = "";
+
   /// Constructor.
   Config(String configPath, String inventoryContent) {
     createInventoryConfigFile(configPath, inventoryContent);
