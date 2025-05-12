@@ -25,13 +25,10 @@ import 'package:ocs_agent/core/log.dart';
 import 'package:ocs_agent/core/config.dart';
 
 import 'package:ocs_agent/core/inventory/linux/commands.dart';
-import 'package:ocs_agent/core/inventory/linux/format.dart';
-
 import 'package:ocs_agent/core/inventory/macos/commands.dart';
-import 'package:ocs_agent/core/inventory/macos/format.dart';
-
 import 'package:ocs_agent/core/inventory/windows/commands.dart';
-import 'package:ocs_agent/core/inventory/windows/format.dart';
+
+import 'package:ocs_agent/core/inventory/format.dart';
 
 // Common imports
 import 'package:ocs_agent/core/common/files_utils.dart';
@@ -45,11 +42,9 @@ class Inventory {
   late HTTPUtils httpUtils;
   late JsonUtils jsonUtils;
   late LinuxCommand linuxCommand;
-  late LinuxFormat linuxFormat;
   late MacOSCommand macOSCommand;
-  late MacOSFormat macOSFormat;
   late WindowsCommand windowsCommand;
-  late WindowsFormat windowsFormat;
+  late InventoryFormat inventoryFormat;
 
   late var baseUrl;
   late bool inventoryCheck;
@@ -71,11 +66,9 @@ class Inventory {
     this.httpUtils,
     this.jsonUtils,
     this.linuxCommand,
-    this.linuxFormat,
     this.macOSCommand,
-    this.macOSFormat,
     this.windowsCommand,
-    this.windowsFormat,
+    this.inventoryFormat,
   ) {
     List<String> configFields = ["url", "data_directory"];
     String? dataDirectory;
@@ -555,21 +548,10 @@ class Inventory {
   Future<Map<String, dynamic>> getInventoryResult(
       Map<String, dynamic> template, String os) async {
     Map<String, dynamic> inventoryResult = {};
-    var format;
     List<dynamic> sections = [];
+    var format = inventoryFormat;
 
     try {
-      // Check the os platform
-      if (os == "LIN") {
-        format = linuxFormat;
-      } else if (template["os"] == "WIN" && Platform.isWindows) {
-        format = windowsFormat;
-      } else if (template["os"] == "MAC" && Platform.isMacOS) {
-        format = macOSFormat;
-      } else {
-        logError("Unsupported OS detected.");
-      }
-
       sections = template['sections'];
     } catch (e) {
       logError("Error while assigning format or reading sections: $e");
@@ -583,28 +565,33 @@ class Inventory {
         // Choose the retrieval format
         switch (section['retrival_output']) {
           case "TBLE":
-            valueTarget = format.getByArray(section["fields"], result);
+            valueTarget = format.getByMethod(
+                section['retrival_output'], section["fields"], result);
             break;
 
           case "JSON":
             if (os == "MAC") {
-              valueTarget = format.getByJson(
+              valueTarget = format.getByMethod(section['retrival_output'],
                   section["fields"], result, section["target"]);
             } else {
-              valueTarget = format.getByJson(section["fields"], result);
+              valueTarget = format.getByMethod(
+                  section['retrival_output'], section["fields"], result);
             }
             break;
 
           case "PTXT":
-            valueTarget = await format.getByPtxt(section["fields"], result);
+            valueTarget = await format.getByMethod(
+                section['retrival_output'], section["fields"], result);
             break;
 
           case "REGX":
-            valueTarget = format.getByRegx(section["fields"], result);
+            valueTarget = format.getByMethod(
+                section['retrival_output'], section["fields"], result);
             break;
 
           case "GREP":
-            valueTarget = format.getByGrep(section["fields"], result);
+            valueTarget = format.getByMethod(
+                section['retrival_output'], section["fields"], result);
             break;
 
           default:
@@ -645,7 +632,7 @@ class Inventory {
       }
 
       mainRes = await command.getResult(
-          section["target"], section['retrival_method']);
+          section['retrival_method'], section["target"]);
     } catch (e) {
       logError("Unable to get results: $e");
       return result;
@@ -666,7 +653,7 @@ class Inventory {
 
       try {
         res = await command.getResult(
-            field["new_target"], field['retrival_method']);
+            field['retrival_method'], field["new_target"]);
       } catch (e) {
         logError("Error processing field override: $e");
         return result;
@@ -806,14 +793,18 @@ class Inventory {
 
               sectionJson.forEach((newKey, newValue) {
                 if (!fileBase64.containsKey(newKey)) {
-                  logVerbose(sprintf("%s section added to the inventory.", [newKey]));
-                  updatedInventory[newKey] = content["template_inventory"][newKey];
+                  logVerbose(
+                      sprintf("%s section added to the inventory.", [newKey]));
+                  updatedInventory[newKey] =
+                      content["template_inventory"][newKey];
                 } else if (fileBase64[newKey] != newValue) {
                   logVerbose(sprintf("%s section will be updated.", [newKey]));
-                  updatedInventory[newKey] = content["template_inventory"][newKey];
+                  updatedInventory[newKey] =
+                      content["template_inventory"][newKey];
                 } else {
                   logVerbose(sprintf(
-                      "%s section has not changed since last inventory.", [newKey]));
+                      "%s section has not changed since last inventory.",
+                      [newKey]));
                 }
               });
 

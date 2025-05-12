@@ -31,15 +31,14 @@ import 'package:ocs_agent/core/log.dart';
 
 import 'package:ocs_agent/core/inventory/linux/baseLinux.dart';
 import 'package:ocs_agent/core/inventory/linux/commands.dart';
-import 'package:ocs_agent/core/inventory/linux/format.dart';
 
 import 'package:ocs_agent/core/inventory/macos/baseMacOS.dart';
 import 'package:ocs_agent/core/inventory/macos/commands.dart';
-import 'package:ocs_agent/core/inventory/macos/format.dart';
 
 import 'package:ocs_agent/core/inventory/windows/baseWindows.dart';
 import 'package:ocs_agent/core/inventory/windows/commands.dart';
-import 'package:ocs_agent/core/inventory/windows/format.dart';
+
+import 'package:ocs_agent/core/inventory/format.dart';
 
 // Modules imports
 import 'package:ocs_agent/core/inventory.dart';
@@ -232,30 +231,19 @@ Future<void> main(List<String> args) async {
 
   // Initiate core
   LinuxCommand linuxCommand = new LinuxCommand(logger);
-  LinuxFormat linuxFormat = new LinuxFormat(logger, linuxCommand);
   BaseLinux baseLinux =
       new BaseLinux(logger, linuxCommand, filesUtils, jsonUtils);
   MacOSCommand macOSCommand = new MacOSCommand(logger);
-  MacOSFormat macOSFormat = new MacOSFormat(logger, macOSCommand);
   BaseMacOS baseMacOS = new BaseMacOS(logger, macOSCommand);
   WindowsCommand windowsCommand = new WindowsCommand(logger);
-  WindowsFormat windowsFormat = new WindowsFormat(logger, windowsCommand);
   BaseWindows baseWindows =
       new BaseWindows(logger, windowsCommand, filesUtils, jsonUtils);
+  InventoryFormat inventoryFormat =
+      new InventoryFormat(logger, linuxCommand, macOSCommand, windowsCommand);
 
   // Initiate modules
-  Inventory inventory = new Inventory(
-      logger,
-      config,
-      filesUtils,
-      httpUtils,
-      jsonUtils,
-      linuxCommand,
-      linuxFormat,
-      macOSCommand,
-      macOSFormat,
-      windowsCommand,
-      windowsFormat);
+  Inventory inventory = new Inventory(logger, config, filesUtils, httpUtils,
+      jsonUtils, linuxCommand, macOSCommand, windowsCommand, inventoryFormat);
   Deployment deployment = new Deployment(
       logger, config, httpUtils, linuxCommand, macOSCommand, windowsCommand);
 
