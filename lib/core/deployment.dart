@@ -100,11 +100,12 @@ class Deployment {
   }
 
   /// Make an API call to the deployment endpoint and handle the response
-  Future<Map<String, dynamic>> _makeDeploymentApiCall(String endpoint, Map<String, String> params) async {
+  Future<Map<String, dynamic>> _makeDeploymentApiCall(
+      String endpoint, Map<String, String> params) async {
     var uri = Uri.parse(url + endpoint).replace(queryParameters: params);
     var response = await httpUtils.get(uri, httpUtils.getHeader(config));
     logger.verbose(this.runtimeType.toString(), response["message"]);
-    
+
     return {
       "status_code": response["status_code"],
       "body": response["body"],
@@ -117,9 +118,7 @@ class Deployment {
     // API call: Check if there is assigned packages
     try {
       var response = await _makeDeploymentApiCall(
-        "/deployment/results/",
-        {"asset": assetID.toString(), "status": "1"}
-      );
+          "/deployment/results/", {"asset": assetID.toString(), "status": "1"});
 
       if (response["status_code"] == 200 &&
           jsonDecode(response["body"]).isNotEmpty) {
@@ -132,15 +131,19 @@ class Deployment {
         for (var element in results) {
           try {
             var responseNotified = await httpUtils.patch(
-                Uri.parse(
-                    url + "/deployment/results/" + element["id"].toString() + "/"),
-              httpUtils.getHeader(config),
-              "{\"status\": 2, \"comment\": \"Notified\"}");
+                Uri.parse(url +
+                    "/deployment/results/" +
+                    element["id"].toString() +
+                    "/"),
+                httpUtils.getHeader(config),
+                "{\"status\": 2, \"comment\": \"Notified\"}");
             logger.verbose(
                 this.runtimeType.toString(), responseNotified["message"]);
           } catch (exception) {
-            logger.error(this.runtimeType.toString(),
-                sprintf("Failed to update package status: %s", [exception.toString().trim()]));
+            logger.error(
+                this.runtimeType.toString(),
+                sprintf("Failed to update package status: %s",
+                    [exception.toString().trim()]));
             return false;
           }
         }
@@ -150,10 +153,10 @@ class Deployment {
             "No assigned packages found for this asset.");
         return false;
       }
-    }catch (exception) {
+    } catch (exception) {
       logger.error(this.runtimeType.toString(),
-            sprintf("HTTP query: %s", [exception.toString().trim()]));
-        return false;
+          sprintf("HTTP query: %s", [exception.toString().trim()]));
+      return false;
     }
   }
 
@@ -166,9 +169,7 @@ class Deployment {
       try {
         // API call: get the list of actions
         var response = await _makeDeploymentApiCall(
-          "/deployment/actions/",
-          {"package": element["package"].toString()}
-        );
+            "/deployment/actions/", {"package": element["package"].toString()});
 
         if (response["status_code"] == 200) {
           // Sort the actions by priority
@@ -218,7 +219,7 @@ class Deployment {
   }) {
     int actionStatus = result["status"] == true ? 0 : 1;
     String errorComment = "Error";
-    
+
     if (actionStatus == 0) {
       logger.info(this.runtimeType.toString(), successMessage);
     } else {
@@ -226,7 +227,7 @@ class Deployment {
       logger.error(this.runtimeType.toString(), errorComment);
       actionErrors["$actionId"] = result["error"];
     }
-    
+
     return {
       "actionStatus": actionStatus,
       "errorComment": errorComment,
@@ -244,12 +245,12 @@ class Deployment {
     String errorComment = "Error";
     Map<String, String> actionErrors = {};
 
-    if(os != "WIN" && os != "MAC" && os != "LIN") {
+    if (os != "WIN" && os != "MAC" && os != "LIN") {
       logger.error(this.runtimeType.toString(), "Unsupported OS detected.");
       return;
     }
 
-    if(assetID == null || assetID < 0) {
+    if (assetID < 0) {
       logger.error(this.runtimeType.toString(), "Invalid asset ID detected.");
       return;
     }
@@ -315,25 +316,28 @@ class Deployment {
             var result = handleActionResult(
               actionType: "storing file",
               result: storeResult,
-              successMessage: "File has been successfully downloaded and saved.",
+              successMessage:
+                  "File has been successfully downloaded and saved.",
               actionId: action["id"],
               actionErrors: actionErrors,
             );
             actionStatus = result["actionStatus"];
             errorComment = result["errorComment"];
             status = result["status"];
-            
+
             if (actionStatus == 0) {
               // Delete the package directory after storing the file
               var packageDirectory = Directory(packagePath);
               if (packageDirectory.existsSync()) {
-                try{
+                try {
                   await packageDirectory.delete(recursive: true);
                   logger.verbose(this.runtimeType.toString(),
                       "Deleted package directory at: '$packagePath'");
                 } catch (exception) {
-                  logger.error(this.runtimeType.toString(),
-                      sprintf("Failed to delete package directory: %s", [exception.toString().trim()]));
+                  logger.error(
+                      this.runtimeType.toString(),
+                      sprintf("Failed to delete package directory: %s",
+                          [exception.toString().trim()]));
                 }
               }
             }
@@ -356,7 +360,7 @@ class Deployment {
             actionStatus = result["actionStatus"];
             errorComment = result["errorComment"];
             status = result["status"];
-            
+
             // Delete the package directory after launching the file
             var packageDirectory = Directory(packagePath);
             if (packageDirectory.existsSync()) {
@@ -365,8 +369,10 @@ class Deployment {
                 logger.verbose(this.runtimeType.toString(),
                     "Deleted package directory at: '$packagePath'");
               } catch (exception) {
-                logger.error(this.runtimeType.toString(),
-                    sprintf("Failed to delete package directory: %s", [exception.toString().trim()]));
+                logger.error(
+                    this.runtimeType.toString(),
+                    sprintf("Failed to delete package directory: %s",
+                        [exception.toString().trim()]));
               }
             }
             break;
