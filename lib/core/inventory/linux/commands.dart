@@ -16,7 +16,6 @@
 
 // External package imports
 import 'dart:io';
-import 'dart:convert';
 
 // Core imports
 import 'package:ocs_agent/core/log.dart';
@@ -26,122 +25,91 @@ class LinuxCommand {
   late Logger logger;
 
   /// Constructor
-  LinuxCommand(Logger logger) {
-    this.logger = logger;
-  }
+  LinuxCommand(this.logger);
 
-  /// Execute [commandLine] to Shell.
-  Future<Map<String, Object>> commandShell(
-      String commandLine, bool normalization) async {
-    List<String> args = commandLine.split(" ");
-    String command = args[0];
-    args.removeAt(0);
-    if (args.isEmpty) {
-      args = [];
-    }
-
-    Map<String, String> ev = new Map<String, String>();
-    ev.putIfAbsent("LANG", () => "C");
-
+  /// Process the given target based on the [method].
+  Future<Map<String, Object>> processTarget(
+      String method, String target) async {
+    final methodParameters = await getMethodParameters(method, target);
+    final process = methodParameters['process'];
+    final commentSubject = methodParameters['commentSubject'];
     Map<String, Object> processData = {};
 
-    try {
-      // Attempt to run the command
-      late ProcessResult process;
-      if (normalization) {
-        process = await Process.run(command, args, environment: ev);
-        processData["value"] = await process.stdout.toString().trim();
-      } else {
-        process = await Process.run(command, args);
-        processData["value"] = await process.stdout.toString();
-      }
+    if (process == null) return processData;
 
-      if (process.exitCode != 0) {
-        processData["value"] = "";
-        processData["status"] = false;
-        processData["error"] =
-            utf8.decode(utf8.encode(process.stderr.toString().trim()));
-        logger.error(this.runtimeType.toString(),
-            "Executing command '$commandLine' - ${process.stderr}");
-      } else {
-        processData["status"] = true;
-        processData["error"] = "";
-        logger.verbose(
-            this.runtimeType.toString(), "Executed command: '$commandLine'");
-        if (processData["value"] == "") {
-          processData["value"] = "No output for command '$commandLine'.";
-        }
-      }
-    } on ProcessException catch (e) {
-      processData["value"] = "";
-      processData["status"] = false;
-      processData["error"] = utf8.decode(utf8.encode(e.toString()));
-      // Handle the specific error
+    int exitCode = process.exitCode;
+    String stdout = process.stdout.toString().trim();
+    String stderr = process.stderr.toString().trim();
+
+    processData["value"] = (exitCode == 0) ? stdout : "";
+    processData["status"] = (exitCode == 0);
+
+    if (method == "BASH") processData["error"] = (exitCode == 0) ? "" : stderr;
+
+    if (stdout.isEmpty)
       logger.error(this.runtimeType.toString(),
-          "This command '$command' could not be found : $e");
-    } catch (e) {
-      processData["value"] = "";
-      processData["status"] = false;
-      processData["error"] = utf8.decode(utf8.encode(e.toString()));
-      // Handle other errors
-      logger.error(this.runtimeType.toString(), 'An error occurred : $e');
-    }
+          "No output for $commentSubject '$target'.");
+
+    logger.verbose(this.runtimeType.toString(),
+        "Executed $commentSubject: '$target'");
+
+    if (stderr.isNotEmpty)
+      logger.error(this.runtimeType.toString(),
+          "Executing $commentSubject '$target' - Error: ${stderr}");
 
     return processData;
   }
 
-  /// Return [path] file content.
-  Future<Map<String, Object>> readFile(String path, bool normalization) async {
-    Map<String, Object> processData = {};
-    try {
-      // Attempt to run the command
-      var process = await Process.run("cat", [path]);
-      if (normalization) {
-        processData["value"] = await process.stdout.toString().trim();
-      } else {
-        processData["value"] = await process.stdout.toString();
-      }
+  /// Get the parameters based on [method] and [target].
+  Future<Map<String, dynamic>> getMethodParameters(
+      String method, String target) async {
+    late ProcessResult? process;
+    late String commentSubject;
 
-      if (process.exitCode != 0) {
-        processData["value"] = "";
-        processData["status"] = false;
-        logger.error(this.runtimeType.toString(),
-            "Executing file '$path' - ${process.stderr}");
-      } else {
-        processData["status"] = true;
-        logger.verbose(
-            this.runtimeType.toString(), "File executed successfully: $path");
-        if (processData["value"] == "") {
-          processData["value"] = "No output for file '$path'.";
-        }
-      }
-    } on ProcessException catch (e) {
-      processData["value"] = "";
-      processData["status"] = false;
-      // Handle the specific error
-      logger.error(this.runtimeType.toString(),
-          "This file '$path' could not be found : $e");
-    } catch (e) {
-      processData["value"] = "";
-      processData["status"] = false;
-      // Handle other errors
-      logger.error(this.runtimeType.toString(), 'An error occurred : $e');
-    }
-
-    return processData;
-  }
-
-  /// Execute or read [command] in terms of [type].
-  // ignore: missing_return
-  Future<String?> getResult(String command, String type) async {
-    switch (type) {
-      case "FILE":
-        return (await this.readFile(command, true))["value"].toString();
-      case "CMD":
-        return (await this.commandShell(command, true))["value"].toString();
+    switch (method) {
       case "BASH":
-        return (await this.commandShell(command, false))["value"].toString();
+        try {
+          process = await Process.run('bash', ['-c', target]);
+        } on ProcessException catch (e) {
+          logger.error(this.runtimeType.toString(),
+              "This command '$target' could not be found : $e");
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), 'An error occurred : $e');
+        }
+
+        commentSubject = "command";
+        break;
+
+      case "FILE":
+        try {
+          process = await Process.run("cat", [target]);
+        } on ProcessException catch (e) {
+          logger.error(this.runtimeType.toString(),
+              "This file '$target' could not be found : $e");
+        } catch (e) {
+          logger.error(this.runtimeType.toString(), 'An error occurred : $e');
+        }
+
+        commentSubject = "file";
+        break;
+
+      default:
+        logger.error(this.runtimeType.toString(), "Unknown method : $method");
+
+        process = null;
+        commentSubject = "";
+        break;
     }
-    return null;
+
+    return {
+      'process': process,
+      'commentSubject': commentSubject,
+    };
+  }
+
+  /// Execute or read [target] in terms of [method].
+  Future<String?> getResult(String method, String target) async {
+    return (await this.processTarget(method, target))["value"]
+        .toString();
   }
 }

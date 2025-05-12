@@ -48,10 +48,10 @@ class BaseLinux {
 
     logger.info(this.runtimeType.toString(), "Retrieving OS body...");
 
-    dynamic getOSRelease =
-        (await linuxCommand.readFile("/etc/os-release", true))["value"]
-            .toString()
-            .split("\n");
+    dynamic getOSRelease = (await linuxCommand.processTarget(
+            "FILE", "/etc/os-release"))["value"]
+        .toString()
+        .split("\n");
     Map<String, String> osRelease = {};
     for (final info in getOSRelease) {
       RegExp exp = RegExp(r'(?<key>[\S]+?)="(?<value>[\S\s]+?)"');
@@ -66,7 +66,7 @@ class BaseLinux {
     }
 
     dynamic getHostnamectl =
-        (await linuxCommand.commandShell("hostnamectl", true))["value"]
+        (await linuxCommand.processTarget("BASH", "hostnamectl"))["value"]
             .toString()
             .split("\n");
     Map<String, String> hostnamectl = {};
@@ -82,8 +82,8 @@ class BaseLinux {
       }
     }
 
-    dynamic interfaces = (await linuxCommand.commandShell(
-            "ip route show default", true))["value"]
+    dynamic interfaces = (await linuxCommand.processTarget(
+            "BASH", "ip route show default"))["value"]
         .toString()
         .split("\n");
 
@@ -91,8 +91,8 @@ class BaseLinux {
     for (final route in interfaces) {
       if (route.isNotEmpty) {
         dynamic interface = route.split(" ")[4];
-        dynamic getMacAddress = (await linuxCommand.commandShell(
-                "ip link show $interface", true))["value"]
+        dynamic getMacAddress = (await linuxCommand.processTarget(
+                "BASH", "ip link show $interface"))["value"]
             .toString();
         RegExp exp = RegExp(r'link\/ether (?<mac>[\S\s]+?) ');
         RegExpMatch? match = exp.firstMatch(getMacAddress);
@@ -111,26 +111,29 @@ class BaseLinux {
     }
 
     // Get name
-    String name = (await linuxCommand.commandShell("hostname", true))["value"]
-        .toString()
-        .trim();
+    String name =
+        (await linuxCommand.processTarget("BASH", "hostname"))["value"]
+            .toString()
+            .trim();
 
     dynamic body = ({
       "name": name,
       "description": osRelease["PRETTY_NAME"].toString() +
           " " +
           hostnamectl["Architecture"].toString(),
-      "serial": (await linuxCommand.commandShell(
-              "sudo dmidecode -s system-serial-number", true))["value"]
+      "serial": (await linuxCommand.processTarget(
+              "BASH", "sudo dmidecode -s system-serial-number"))["value"]
           .toString(),
       "osname": osRelease["NAME"].toString(),
       "osversion": osRelease["VERSION_ID"].toString(),
       "uuid": await _getUUID(name, macAddress),
-      "srcip": (await linuxCommand.commandShell("hostname -I", true))["value"]
+      "srcip": (await linuxCommand.processTarget(
+              "BASH", "hostname -I"))["value"]
           .toString()
           .split(" ")[0],
       "srcmac": macAddress,
-      "domain": (await linuxCommand.commandShell("hostname -d", true))["value"]
+      "domain": (await linuxCommand.processTarget(
+              "BASH", "hostname -d"))["value"]
           .toString(),
     });
 
@@ -141,8 +144,8 @@ class BaseLinux {
 
   /// Get UUID or generate one if not available and save it in a uuid file
   Future<String> _getUUID(String name, String macAddress) async {
-    String uuid = (await linuxCommand.commandShell(
-            "sudo dmidecode -s system-uuid", true))["value"]
+    String uuid = (await linuxCommand.processTarget(
+            "BASH", "sudo dmidecode -s system-uuid"))["value"]
         .toString();
 
     if (uuid == "") {
@@ -164,8 +167,9 @@ class BaseLinux {
       } else {
         logger.info(this.runtimeType.toString(),
             "UUID not found, generating a new one...");
-        uuid = (await linuxCommand.commandShell("uuidgen", true))["value"]
-            .toString();
+        uuid =
+            (await linuxCommand.processTarget("BASH", "uuidgen"))["value"]
+                .toString();
         dynamic baseAdded = {};
         baseAdded["name"] = name;
         baseAdded["uuid"] = uuid;

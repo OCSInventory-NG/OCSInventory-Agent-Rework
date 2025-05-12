@@ -393,7 +393,7 @@ class Deployment {
       switch (os) {
         case "LIN":
           result = await linuxCommand
-              .commandShell(actionCommand, true)
+              .processTarget("BASH", actionCommand)
               .then((value) {
             return value;
           }).catchError((onError) {
