@@ -52,7 +52,7 @@ class Format {
     }
 
     if (fields.isEmpty) {
-      logger.error(runtimeType.toString(), "No fields available");
+      logger.warning(runtimeType.toString(), "No fields available");
       return subInventory;
     }
 
@@ -67,7 +67,7 @@ class Format {
     mainOptions = resultCommandData['mainOptions'];
 
     if (!mainResultValid) {
-      logger.error(this.runtimeType.toString(),
+      logger.warning(this.runtimeType.toString(),
           "No results to process: the input data is empty or malformed.");
       return subInventory;
     }
@@ -132,7 +132,7 @@ class Format {
             processedResults = targetResult.cast<Map<String, dynamic>>();
           }
         } catch (e) {
-          logger.error(
+          logger.warning(
             this.runtimeType.toString(),
             "Skip due to invalid or malformed JSON.",
           );
@@ -148,7 +148,7 @@ class Format {
         break;
 
       default:
-        logger.error(this.runtimeType.toString(), "Unknown method : $method");
+        logger.warning(this.runtimeType.toString(), "Unknown method : $method");
     }
 
     return processedResults;
@@ -218,7 +218,7 @@ class Format {
           final start = index + retrivalValue.length + 1;
 
           if (index == -1) {
-            logger.error(this.runtimeType.toString(),
+            logger.warning(this.runtimeType.toString(),
                 "Retrival value '$retrivalValue' not found in: $processedResult");
             return;
           }
@@ -233,7 +233,7 @@ class Format {
           break;
 
         default:
-          logger.error(this.runtimeType.toString(), "Unknown method : $method");
+          logger.warning(this.runtimeType.toString(), "Unknown method : $method");
           break;
       }
 

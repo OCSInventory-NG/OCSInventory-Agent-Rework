@@ -566,7 +566,7 @@ class Inventory {
       logger.info(
           this.runtimeType.toString(), "Template processed successfully.");
     } else {
-      logger.error(this.runtimeType.toString(),
+      logger.warning(this.runtimeType.toString(),
           "Failed to process template. Template is empty.");
     }
 
@@ -616,7 +616,7 @@ class Inventory {
             break;
 
           default:
-            logger.error(
+            logger.warning(
                 this.runtimeType.toString(), "Retrival format unknown.");
             valueTarget = null;
             break;
@@ -645,7 +645,8 @@ class Inventory {
           .commands
           .getResult(section['retrival_method'], section["target"]);
     } catch (e) {
-      logger.error(this.runtimeType.toString(), "Unable to get results: $e");
+      logger.warning(this.runtimeType.toString(),
+          "Unable to get results for ${section["target"]}: $e");
 
       return result;
     }
@@ -663,7 +664,7 @@ class Inventory {
         res = await commands.getResult(
             field['retrival_method'], field["new_target"]);
       } catch (e) {
-        logger.error(
+        logger.warning(
             this.runtimeType.toString(), "Error processing field override: $e");
 
         return result;
@@ -821,7 +822,7 @@ class Inventory {
               });
 
               if (!inventoryBase64.existsSync()) {
-                logger.error(this.runtimeType.toString(),
+                logger.info(this.runtimeType.toString(),
                     "Can't find base64 file, creating one...");
                 inventoryBase64.createSync(recursive: true);
                 filesUtils.writeFile(inventoryBase64, "{}");

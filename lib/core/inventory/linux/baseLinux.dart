@@ -101,7 +101,7 @@ class BaseLinux {
     }
 
     if (macAddress == null) {
-      logger.error(this.runtimeType.toString(), "No valid MAC address found.");
+      logger.warning(this.runtimeType.toString(), "No valid MAC address found.");
       return null;
     }
 

@@ -53,7 +53,7 @@ class Commands {
           "Executing $commentSubject '$target' - Error: ${stderr}");
 
     if (stdout.isEmpty)
-      logger.error(this.runtimeType.toString(),
+      logger.warning(this.runtimeType.toString(),
           "No output for $commentSubject '$target'.");
 
     return processData;
@@ -123,7 +123,7 @@ class Commands {
     try {
       process = await Process.run(executable, commandArguments);
     } on ProcessException catch (e) {
-      logger.error(
+      logger.warning(
         runtimeType.toString(),
         "This command or file '$target' could not be found : $e",
       );
