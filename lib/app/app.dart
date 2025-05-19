@@ -67,8 +67,6 @@ Future<void> main(List<String> args) async {
       defaultsTo: "1");
   parser.addOption("password",
       abbr: "p", help: "Password", valueHelp: "password", defaultsTo: "admin");
-  parser.addOption("token",
-      abbr: "t", help: "Token", valueHelp: "token", defaultsTo: "");
   parser.addOption("username",
       abbr: "u", help: "Username", valueHelp: "username", defaultsTo: "admin");
   parser.addOption("url",
@@ -183,7 +181,6 @@ Future<void> main(List<String> args) async {
   inventoryConfigurations['mode'] = mode;
   inventoryConfigurations['password'] =
       await allArgs.option("password").toString();
-  inventoryConfigurations['token'] = "";
   inventoryConfigurations['username'] =
       await allArgs.option("username").toString();
   inventoryConfigurations['url'] = await allArgs.option("url").toString();

@@ -133,8 +133,7 @@ class Inventory {
     } catch (e) {
       logError("Configuration error: $e");
     }
-    if (responseGet != null/*&& responseGet["status_code"] == 200*/) {
-      logVerbose(responseGet["message"]);
+    if (responseGet != null) {
       logInfo("API is online!");
 
       return true;
@@ -188,7 +187,6 @@ class Inventory {
       Config.token = sessionToken;
       return true;
     } else {
-      logVerbose(".");
       logError("Token generation failed!");
 
       return false;
