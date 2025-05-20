@@ -67,35 +67,35 @@ class Logger {
     dateFormat = DateFormat('EEE MMM dd HH:mm:ss yyyy');
   }
 
-  /// Print critical error message
+  /// Print critical message only.
   void critical(String className, String message) {
     if (_logLevel >= 0) {
       _logMessage("\x1B[41;97m", "CRITICAL", className, message);
     }
   }
 
-  /// Print error message only.
+  /// Print critical and error messages.
   void error(String className, String message) {
     if (_logLevel >= 1) {
       _logMessage("\x1B[31m", "ERROR", className, message);
     }
   }
 
-  /// Print error and warning messages.
+  /// Print critical, error and warning messages.
   void warning(String className, String message) {
     if (_logLevel >= 2) {
       _logMessage("\x1B[33m", "WARNING", className, message);
     }
   }
 
-  /// Print info, warning, and error messages.
+  /// Print critical, error, warning and info messages.
   void info(String className, String message) {
     if (_logLevel >= 3) {
       _logMessage("\x1B[32m", "INFO", className, message);
     }
   }
 
-  /// Print debug message.
+  /// Print critical, error, warning, info and debug message.
   void debug(String className, String message) {
     if (_logLevel >= 4) {
       _logMessage("\x1B[34m", "DEBUG", className, message);
