@@ -84,7 +84,7 @@ class Format {
       if (result.isNotEmpty) subInventory.add(result);
     }
 
-    logger.verbose(this.runtimeType.toString(), subInventory.toString());
+    logger.debug(this.runtimeType.toString(), subInventory.toString());
 
     return subInventory;
   }
@@ -233,7 +233,8 @@ class Format {
           break;
 
         default:
-          logger.warning(this.runtimeType.toString(), "Unknown method : $method");
+          logger.warning(
+              this.runtimeType.toString(), "Unknown method : $method");
           break;
       }
 

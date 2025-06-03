@@ -45,7 +45,7 @@ class Commands {
     processData["status"] = (exitCode == 0);
     processData["error"] = stderr;
 
-    logger.verbose(
+    logger.debug(
         this.runtimeType.toString(), "Executed $commentSubject: '$target'");
 
     if (stderr.isNotEmpty)
