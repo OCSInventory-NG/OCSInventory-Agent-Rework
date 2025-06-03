@@ -50,8 +50,6 @@ class Logger {
     _isFile = config.getInventoryConfig("log_file");
     _url = config.getInventoryConfig("url");
     _logLevel = config.getInventoryConfig("log_level");
-    String serverLogLevel = config.getCoreConfig("agent", "inventory_loglevel");
-    _serverLogLevel = _stringToLevel(serverLogLevel);
 
     if (_isFile) {
       try {
@@ -133,6 +131,9 @@ class Logger {
       return;
     }
 
+    String serverLogLevel = config.getCoreConfig("agent", "inventory_loglevel");
+    _serverLogLevel = _stringToLevel(serverLogLevel);
+
     // error code to log level and scope
     Map<int, dynamic> errorMapping = {
       0: {"level": 2, "scope": "UNKNOWN"}, // WARNING
@@ -158,7 +159,7 @@ class Logger {
     }
 
     HTTPUtils query = HTTPUtils(this, config);
-    String token = config.getInventoryConfig("token");
+    String token = Config.token;
     Map<String, dynamic> content = {
       "asset": assetID,
       "scope": mapping["scope"],
