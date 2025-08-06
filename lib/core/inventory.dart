@@ -373,6 +373,8 @@ class Inventory {
           logger.info(this.runtimeType.toString(),
               "Deleting base64 file to reset the inventory checksum...");
           this.inventoryBase64.deleteSync();
+          logger.info(
+              this.runtimeType.toString(), "Base64 file deleted successfully.");
 
           return true;
         } else {
