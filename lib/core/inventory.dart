@@ -370,6 +370,10 @@ class Inventory {
               this.runtimeType.toString(), "Remote template saved locally.");
           logger.serverLogger(assetID, 11, "Remote template saved locally.");
 
+          logger.info(this.runtimeType.toString(),
+              "Deleting base64 file to reset the inventory checksum...");
+          this.inventoryBase64.deleteSync();
+
           return true;
         } else {
           logger.error(
