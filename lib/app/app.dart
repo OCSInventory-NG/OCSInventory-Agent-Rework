@@ -195,7 +195,6 @@ Future<void> main(List<String> args) async {
   config = await Config(
       configDirectory, jsonEncode(inventoryConfigurations).toString());
 
-
   if (allArgs.wasParsed("certificate")) {
     File certificate = File(allArgs.option("certificate").toString());
     if (certificate.existsSync()) {
@@ -215,9 +214,8 @@ Future<void> main(List<String> args) async {
       // Update the content of the map into the config class
       config.setConfigFileContentByKey(key, value);
       // if --overwrite_config update the config file
-      if(allArgs.wasParsed("overwrite_config") == true &&
-        allArgs.option("overwrite_config").toString() == "true"){
-
+      if (allArgs.wasParsed("overwrite_config") == true &&
+          allArgs.option("overwrite_config").toString() == "true") {
         config.updateInventoryConfig(key, value);
         Config.readOnly = false;
       }
@@ -235,12 +233,11 @@ Future<void> main(List<String> args) async {
   // Initiate core
   Commands commands = new Commands(logger);
   BaseLinux baseLinux =
-      new BaseLinux(logger, commands, filesUtils, jsonUtils);
-  BaseMacOS baseMacOS = new BaseMacOS(logger, commands);
+      new BaseLinux(logger, config, commands, filesUtils, jsonUtils);
+  BaseMacOS baseMacOS = new BaseMacOS(logger, config, commands);
   BaseWindows baseWindows =
-      new BaseWindows(logger, commands, filesUtils, jsonUtils);
-  Format format =
-      new Format(logger, commands);
+      new BaseWindows(logger, config, commands, filesUtils, jsonUtils);
+  Format format = new Format(logger, commands);
 
   // Initiate modules
   Inventory inventory = new Inventory(

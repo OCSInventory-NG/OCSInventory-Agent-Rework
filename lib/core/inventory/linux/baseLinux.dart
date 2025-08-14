@@ -31,6 +31,7 @@ import 'package:ocs_agent/core/config.dart';
 
 class BaseLinux {
   late Logger logger;
+  late Config config;
   late Commands commands;
   FilesUtils filesUtils;
   JsonUtils jsonUtils;
@@ -38,7 +39,8 @@ class BaseLinux {
   final String logType = "BaseInventory";
 
   /// Constructor
-  BaseLinux(this.logger, this.commands, this.filesUtils, this.jsonUtils);
+  BaseLinux(
+      this.logger, this.config, this.commands, this.filesUtils, this.jsonUtils);
 
   ///This fonction return the body for to asset/bases
   dynamic getBody() async {
@@ -136,6 +138,7 @@ class BaseLinux {
       "domain": (await commands.processTarget(
           "BASH", "hostname -d", logType, "DOMAIN"))["value"],
       "agent": Config.agentVersion,
+      "template": config.getTemplateKey("id"),
     });
 
     logger.info(this.runtimeType.toString(), "OS body retrieved successfully.");

@@ -181,7 +181,10 @@ class Config {
 
   /// return [key] content in template file.
   String getTemplateKey(String key) {
-    return this.jsonUtils.getContentFromFileByKey(this.template, key);
+    return this
+        .jsonUtils
+        .getContentFromFileByKey(this.template, key)
+        .toString();
   }
 
   /// Update core template file by [key] and [value].

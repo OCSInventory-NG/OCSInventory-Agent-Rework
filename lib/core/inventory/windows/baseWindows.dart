@@ -30,13 +30,15 @@ import 'package:ocs_agent/core/config.dart';
 
 class BaseWindows {
   late Logger logger;
+  late Config config;
   late Commands commands;
   late FilesUtils filesUtils;
   late JsonUtils jsonUtils;
   final String logType = "BaseInventory";
 
   /// Constructor
-  BaseWindows(this.logger, this.commands, this.filesUtils, this.jsonUtils);
+  BaseWindows(
+      this.logger, this.config, this.commands, this.filesUtils, this.jsonUtils);
 
   ///This fonction return the body for the asset/bases
   dynamic getBody() async {
@@ -118,6 +120,7 @@ class BaseWindows {
               "DOMAIN"))["value"]
           .toString(),
       "agent": Config.agentVersion,
+      "template": config.getTemplateKey("id"),
     });
 
     logger.info(this.runtimeType.toString(), "OS body has been retrieved!");

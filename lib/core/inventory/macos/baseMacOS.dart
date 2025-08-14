@@ -16,7 +16,6 @@
 
 // External package imports
 import 'package:ocs_agent/core/log.dart';
-import 'dart:io';
 
 // Core imports
 import 'package:ocs_agent/core/inventory/commands.dart';
@@ -24,11 +23,12 @@ import 'package:ocs_agent/core/config.dart';
 
 class BaseMacOS {
   late Logger logger;
+  late Config config;
   late Commands commands;
   final String logType = "BaseInventory";
 
   /// Constructor
-  BaseMacOS(this.logger, this.commands);
+  BaseMacOS(this.logger, this.config, this.commands);
 
   ///This fonction return the body for to asset/bases
   dynamic getBody() async {
@@ -103,6 +103,7 @@ class BaseMacOS {
           .toString(),
       "domain": getDomain,
       "agent": Config.agentVersion,
+      "template": config.getTemplateKey("id"),
     });
 
     logger.info(this.runtimeType.toString(), "OS body retrieved successfully.");

@@ -718,6 +718,8 @@ class Inventory {
           // API call
           logger.info(this.runtimeType.toString(), "Updating inventory...");
 
+          logger.debug(this.runtimeType.toString(), encoder.convert(body));
+
           try {
             responsePut = await httpUtils.put(
                 Uri.parse("$baseUrl/asset/collection/"),
