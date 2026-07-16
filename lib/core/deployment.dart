@@ -977,7 +977,7 @@ class Deployment {
       return result;
     }
 
-    result["status"] = (storeStatus && execStatus) ? 0 : 1;
+    result["status"] = storeStatus && execStatus;
     return result;
   }
 

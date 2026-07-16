@@ -154,6 +154,54 @@ class BaseLinux {
     return result["value"] != null && result["value"].toString().isNotEmpty;
   }
 
+  /// Detects whether the process is running inside a container (LXC, Docker,
+  /// Podman, systemd-nspawn, ...).
+  ///
+  /// In a container (especially unprivileged LXC), dmidecode exposes the
+  /// host node's DMI table rather than its own independent one. This means
+  /// every container hosted on the same physical host gets the same System
+  /// UUID and the same serial number from dmidecode, causing device
+  /// identification collisions on the OCS Inventory server (one container
+  /// overwrites another container's inventory). dmidecode must therefore
+  /// be avoided in this context, letting the agent fall back to the
+  /// existing alternative mechanisms (local uuid/serial files, uuidgen, or
+  /// random generation), which are correctly unique per container.
+  Future<bool> _isContainerEnvironment() async {
+    if (await _commandExists("systemd-detect-virt")) {
+      final result = await commands.processTarget(
+          "BASH", "systemd-detect-virt --container -q", logType, "VIRT CHECK");
+      if (result["status"] == true) {
+        return true;
+      }
+    }
+
+    try {
+      final containerFile = File('/run/systemd/container');
+      if (await containerFile.exists()) {
+        final content = (await containerFile.readAsString()).trim();
+        if (content.isNotEmpty) {
+          return true;
+        }
+      }
+    } catch (_) {
+      // Ignore and try the next method
+    }
+
+    try {
+      final envFile = File('/proc/1/environ');
+      if (await envFile.exists()) {
+        final content = await envFile.readAsString();
+        if (content.contains('container=')) {
+          return true;
+        }
+      }
+    } catch (_) {
+      // Ignore: if we can't determine it, assume it's not a container
+    }
+
+    return false;
+  }
+
   /// Generate a UUID if not available
   String _generateUUID() {
     final random = Random.secure();
@@ -165,7 +213,12 @@ class BaseLinux {
   /// Get UUID or generate one if not available and save it in a uuid file
   Future<String> _getUUID() async {
     String uuid = "";
-    if (await _commandExists("dmidecode")) {
+    bool isContainer = await _isContainerEnvironment();
+
+    if (isContainer) {
+      logger.info(this.runtimeType.toString(),
+          "Container environment detected, skipping dmidecode system UUID (would collide with host/other containers on the same node).");
+    } else if (await _commandExists("dmidecode")) {
       uuid = (await commands.processTarget(
         "BASH", "dmidecode -s system-uuid", logType, "UUID"))["value"]
         .toString();
@@ -213,12 +266,23 @@ class BaseLinux {
   }
 
   Future<String> _getSerialNumber(String name, String macAddress) async {
-    String serialResult = (await commands.processTarget(
-            "BASH",
-            "dmidecode -s system-serial-number",
-            logType,
-            "SERIAL NUMBER"))["value"]
-        .toString();
+    String serialResult = "";
+    bool isContainer = await _isContainerEnvironment();
+
+    if (isContainer) {
+      logger.info(this.runtimeType.toString(),
+          "Container environment detected, skipping dmidecode serial number (would collide with host/other containers on the same node).");
+    } else if (await _commandExists("dmidecode")) {
+      serialResult = (await commands.processTarget(
+              "BASH",
+              "dmidecode -s system-serial-number",
+              logType,
+              "SERIAL NUMBER"))["value"]
+          .toString();
+    } else {
+      logger.info(this.runtimeType.toString(),
+          "dmidecode command not found, skipping system serial number.");
+    }
 
     String path = configDir + serialFileName;
 

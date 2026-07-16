@@ -129,38 +129,46 @@ class BaseWindows {
 
   /// Get UUID or generate one if not available and save it in a uuid file
   Future<String> _getUUID() async {
+    // Check if uuid file exists
+    String uuidFilePath = '$configDirectory\\$uuidFileName';
+    File uuidFile = File(uuidFilePath);
+    bool uuidFileExists = await uuidFile.exists();
+
+    // 1: if file exists it's our uuid source
+    if (uuidFileExists) {
+      logger.info(this.runtimeType.toString(), "UUID file found, reading from file...");
+      try {
+        Map<String, dynamic> uuidData = jsonUtils.getContentFromFile(uuidFile);
+        if (uuidData.containsKey("uuid") && uuidData["uuid"].toString().isNotEmpty) {
+          logger.info(this.runtimeType.toString(), "UUID retrieved from file.");
+          return uuidData["uuid"]; 
+        }
+      } catch (e) {
+        logger.info(this.runtimeType.toString(), "Error reading UUID file, proceeding to WMI...");
+      }
+    }
+
+    // 2: if file doesn't exixt get from dmi
+    logger.info(this.runtimeType.toString(), "No valid UUID file, querying system WMI...");
     String uuid = (await commands.processTarget(
             "PW",
             "(Get-WMIObject -Class Win32_ComputerSystemProduct).UUID",
             logType,
             "UUID"))["value"]
-        .toString();
-
-    // path
-    String uuidFilePath = '$configDirectory\\$uuidFileName';
-    File uuidFile = File(uuidFilePath);
-    bool uuidFileExists = await uuidFile.exists();
+        .toString().trim(); // .trim() per evitare spazi vuoti fastidiosi
 
     if (uuid == "") {
-      logger.info(this.runtimeType.toString(),
-          "No system UUID from WMI, checking UUID file...");
-
-      if (!uuidFileExists) {
-        logger.info(this.runtimeType.toString(),
-            "UUID file not found, generating new one.");
-        uuid = (await commands.processTarget(
-                "PW", "[guid]::NewGuid().ToString()", logType, "UUID"))["value"]
-            .toString();
-        filesUtils.writeFile(uuidFile, '{ "uuid": "$uuid" }');
-        logger.info(this.runtimeType.toString(), "New UUID saved to file.");
-      } else {
-        Map<String, dynamic> uuidData = jsonUtils.getContentFromFile(uuidFile);
-        if (uuidData.containsKey("uuid")) {
-          uuid = uuidData["uuid"];
-          logger.info(this.runtimeType.toString(), "UUID file found.");
-        }
-      }
+      logger.info(this.runtimeType.toString(), "No system UUID from WMI, generating new one...");
+      uuid = (await commands.processTarget(
+              "PW", "[guid]::NewGuid().ToString()", logType, "UUID"))["value"]
+          .toString().trim();
+          
+      filesUtils.writeFile(uuidFile, '{ "uuid": "$uuid" }');
+      logger.info(this.runtimeType.toString(), "New UUID generated and saved to file.");
+    } else {
+      logger.info(this.runtimeType.toString(), "UUID successfully retrieved from WMI.");
     }
+
     return uuid;
   }
 
