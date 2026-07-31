@@ -563,7 +563,7 @@ begin
 
     if SaveStringToFile(
          CONFIG_PATH,
-         Format('{"url": "%s", "username": "%s", "password": "%s", "certificate": "%s", "bypass-certificate": %s, "log_file": true, "log_level": %d, "mode": %d, "data_directory": "%s", "log_file_path": "%s", "install_directory": "%s"}', [URL, USERNAME, PASSWORD, CERTIFICATE, BYPASS_CERT, LOG_LEVEL, INVENTORY_MODE, STORE_DATA_PATH, LOG_PATH, INSTALL_PATH]),
+         Format('{"url": "%s", "username": "%s", "password": "%s", "certificate": "%s", "bypass-certificate": %s, "log_file": true, "log_level": %d, "mode": %d, "data_directory": "%s", "log_file_path": "%s", "install_directory": "%s", "execution_timeout": 120}', [URL, USERNAME, PASSWORD, CERTIFICATE, BYPASS_CERT, LOG_LEVEL, INVENTORY_MODE, STORE_DATA_PATH, LOG_PATH, INSTALL_PATH]),
          False) then
       Log(Format(ExpandConstant('{cm:ConfigurationFileCreatedSuccessfully}'), [CONFIG_PATH]))
     else

@@ -726,8 +726,14 @@ class Inventory {
       mainRes = "";
     } else {
       try {
-        mainRes = await this.commands.getTargetResult(
+        final mainProcessResult = await this.commands.processTarget(
             section['retrieval_method'], retrievalTarget, section["name"], "");
+        mainRes = mainProcessResult["value"]?.toString() ?? "";
+
+        if (mainProcessResult["error"] == Commands.timeoutError) {
+          logger.serverLogger(assetID, 6,
+              "Section ${section['name']} failed, command timeout.");
+        }
       } catch (e) {
         logger.warning(this.runtimeType.toString(),
             "Unable to get results for ${section["target"]}: $e");
@@ -748,8 +754,15 @@ class Inventory {
       sub = {};
 
       try {
-        res = await commands.getTargetResult(field['retrieval_method'],
-            field["new_target"], section["name"], field["name"]);
+        final fieldProcessResult = await commands.processTarget(
+            field['retrieval_method'], field["new_target"], section["name"],
+            field["name"]);
+        res = fieldProcessResult["value"]?.toString() ?? "";
+
+        if (fieldProcessResult["error"] == Commands.timeoutError) {
+          logger.serverLogger(assetID, 6,
+              "Section ${section['name']} field ${field["name"]} failed, command timeout.");
+        }
       } catch (e) {
         logger.warning(
             this.runtimeType.toString(), "Error processing field override: $e");

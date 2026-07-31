@@ -292,6 +292,7 @@ In this file, there are properties to configure the agent:
 | log_file_path      | This property is to set the log file path. Only define it if you put log_file to true.<br>**Warning**: It will not create the file. You'll need to create it.        |
 | certificate        | Specify the path to the certificate file (.pem)                                                                                                                      |
 | bypass-certificate | Bypass certificate validation (default: false)                                                                                                                       |
+| execution_timeout  | Maximum time, in seconds, a single inventory command is allowed to run before being killed (default: 120). The inventory continues with the next section/field.     |
 
 ```text
 {
@@ -304,7 +305,8 @@ In this file, there are properties to configure the agent:
     "log_file_path": "/var/log/ocsinventory-agent/ocsinventory-agent.log",
     "data_directory": "/var/lib/ocsinventory-data",
     "certificate": "/certificate path/file_name.pem",
-    "bypass-certificate": false
+    "bypass-certificate": false,
+    "execution_timeout": 120
 }
 ```
 

@@ -103,6 +103,11 @@ void main(List<String> args) async {
       help: "overwrite_config",
       valueHelp: "Overwrite the configuration file if true, default to false",
       defaultsTo: "false");
+  parser.addOption("execution_timeout",
+      abbr: "t",
+      help: "execution_timeout",
+      valueHelp: "Maximum time (in seconds) a single inventory command can run before being killed",
+      defaultsTo: "120");
   parser.addFlag("help",
       abbr: "h", help: "Display this help message", negatable: false);
 
@@ -165,6 +170,17 @@ void main(List<String> args) async {
     }
   }
 
+  int executionTimeout = 120;
+  if (allArgs.wasParsed("execution_timeout")) {
+    executionTimeout =
+        int.tryParse(allArgs.option("execution_timeout").toString()) ?? 120;
+    if (executionTimeout <= 0) {
+      stdout.writeln(
+          "Execution timeout must be a positive number of seconds. Defaulted to 120.");
+      executionTimeout = 120;
+    }
+  }
+
   bool bypassCertificate = false;
   if (allArgs.wasParsed("bypass-certificate")) {
     bypassCertificate =
@@ -192,6 +208,7 @@ void main(List<String> args) async {
   inventoryConfigurations['certificate'] =
       await allArgs.option("certificate").toString();
   inventoryConfigurations["bypass-certificate"] = bypassCertificate;
+  inventoryConfigurations['execution_timeout'] = executionTimeout;
 
   config = await Config(
       configDirectory, jsonEncode(inventoryConfigurations).toString());
@@ -232,7 +249,7 @@ void main(List<String> args) async {
   JsonUtils jsonUtils = new JsonUtils();
 
   // Initiate core
-  Commands commands = new Commands(logger);
+  Commands commands = new Commands(logger, config);
   BaseLinux baseLinux = new BaseLinux(logger, commands, filesUtils, jsonUtils);
   BaseMacOS baseMacOS = new BaseMacOS(logger, commands);
   BaseWindows baseWindows =
