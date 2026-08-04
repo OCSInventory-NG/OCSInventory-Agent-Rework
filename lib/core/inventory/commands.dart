@@ -20,14 +20,31 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 // Core imports
+import 'package:ocsinventory_agent/core/config.dart';
 import 'package:ocsinventory_agent/core/log.dart';
 
 /// Class for execute command.
 class Commands {
   late Logger logger;
+  late Config config;
+
+  static const int defaultExecutionTimeout = 120;
+
+  static const String timeoutError = "TIMEOUT";
 
   /// Constructor
-  Commands(this.logger);
+  Commands(this.logger, this.config);
+
+  int getExecutionTimeout() {
+    final dynamic configuredTimeout =
+        config.getInventoryConfig("execution_timeout");
+
+    if (configuredTimeout is int && configuredTimeout > 0) {
+      return configuredTimeout;
+    }
+
+    return defaultExecutionTimeout;
+  }
 
   /// Process the given target based on the [method].
   Future<Map<String, Object>> processTarget(
@@ -52,18 +69,20 @@ class Commands {
     final String stdoutStr = _decodeBytes(process.stdout).trim();
     final String stderrStr = _decodeBytes(process.stderr).trim();
 
+    final bool timedOut = stderrStr == timeoutError;
+
     processData["value"] = (exitCode == 0) ? stdoutStr : "";
     processData["status"] = (exitCode == 0);
     processData["error"] = stderrStr;
 
-    if (stderrStr.isNotEmpty) {
+    if (!timedOut && stderrStr.isNotEmpty) {
       logger.error(
         runtimeType.toString(),
         "Executing ${commentSubject ?? 'target'} '$target' - Error: $stderrStr",
       );
     }
 
-    if (stdoutStr.isEmpty) {
+    if (!timedOut && stdoutStr.isEmpty) {
       logger.warning(
         runtimeType.toString(),
         "No output for ${commentSubject ?? 'target'} '$target'.",
@@ -140,6 +159,7 @@ class Commands {
   Future<ProcessResult?> executeTarget(
       String target, String executable, List<String> commandArguments) async {
     ProcessResult? process;
+    final int timeoutSeconds = getExecutionTimeout();
 
     try {
       process = await Process.run(
@@ -147,7 +167,14 @@ class Commands {
         commandArguments,
         stdoutEncoding: null,
         stderrEncoding: null,
-      );
+      ).timeout(Duration(seconds: timeoutSeconds), onTimeout: () {
+        logger.warning(
+          runtimeType.toString(),
+          "Command '$target' exceeded the execution timeout (${timeoutSeconds}s), aborting.",
+        );
+
+        return ProcessResult(0, -1, "", timeoutError);
+      });
     } on ProcessException catch (e) {
       logger.warning(
         runtimeType.toString(),
