@@ -148,11 +148,6 @@ class Inventory {
 
         await generateToken(username, password);
         await fetchPermissions();
-
-        logger.info(this.runtimeType.toString(),
-            "Permissions required for the Inventory module: ${requiredInventoryPermissions.join(', ')}");
-        logger.info(this.runtimeType.toString(),
-            "Permissions required for the Deployment module: ${requiredDeploymentPermissions.join(', ')}");
       } catch (e) {
         logger.error(this.runtimeType.toString(), "Configuration error: $e");
       }

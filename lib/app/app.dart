@@ -327,7 +327,7 @@ void main(List<String> args) async {
         }
       } else {
         String message = sprintf(
-            "Inventory module skipped: agent account is missing required permissions (%s). Add the account to the 'AgentInventory' group.",
+            "Inventory module skipped: agent account lacks permissions %s.",
             [missingInventoryPermissions.join(", ")]);
         logger.error("APP", message);
         logger.serverLogger(inventory.assetID, 10, message);
@@ -341,9 +341,9 @@ void main(List<String> args) async {
         await deployment.processDeployment(os, inventory.assetID);
       } else {
         String message = sprintf(
-            "Deployment module skipped: agent account is missing required permissions (%s). Add the account to the 'AgentDeployment' group.",
+            "Deployment module skipped: agent account lacks permissions %s.",
             [missingDeploymentPermissions.join(", ")]);
-        logger.error("APP", message);
+        logger.warning("APP", message);
         logger.serverLogger(inventory.assetID, 8, message);
       }
     }
