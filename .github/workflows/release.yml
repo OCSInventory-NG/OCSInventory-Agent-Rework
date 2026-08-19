@@ -1,0 +1,176 @@
+name: Release
+
+# Publishes a GitHub Release automatically for every version tag, building
+# the Windows installer, the macOS archive and two Linux archives (one built
+# on a Debian-family base, one on a RHEL-family base - two separate builds
+# so the resulting ocsinventory-cli is linked against each family's own
+# glibc baseline rather than shipping a single binary built on whichever
+# distro happened to run the job). Dart doesn't cross compile - each binary
+# must be built on its own OS/family, hence the runner/container spread
+# below.
+#
+# NOT covered yet: code signing (Windows Authenticode / macOS
+# notarization). The installers this produces are unsigned, same as the
+# existing manually-built 3.0.0-rc1 release - SmartScreen/Gatekeeper will
+# warn users. Revisit once certificates are available.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build service (.NET) + agent CLI (dart)
+        shell: cmd
+        run: setup\windows\build_all.bat
+
+      - name: Install Inno Setup
+        shell: cmd
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ github.ref_name }}" setup\windows\OCSInventory-Agent-Setup\OCSInventory-Agent-Setup.iss
+
+      - name: Rename to the published asset convention
+        shell: pwsh
+        run: |
+          $built = Get-ChildItem -Recurse -Path setup\windows\OCSInventory-Agent-Setup\OCSInventory-Agent-Setup -Filter *.exe | Select-Object -First 1
+          Copy-Item $built.FullName "OCSInventory-Agent-Setup-Windows-${{ github.ref_name }}.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: OCSInventory-Agent-Setup-Windows-*.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+
+      - run: dart pub get
+
+      - name: Build agent CLI
+        run: dart compile exe lib/app/app.dart -o setup/macos/ocsinventory-cli
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          PKG="OCSInventory-Agent-Macos-Setup"
+          mkdir "$PKG"
+          cp setup/macos/install.sh setup/macos/uninstall.sh \
+             setup/macos/com.ocsinventory.agent.plist setup/macos/README \
+             setup/macos/ocsinventory-cli "$PKG/"
+          chmod +x "$PKG/install.sh" "$PKG/uninstall.sh" "$PKG/ocsinventory-cli"
+          tar -cJf "OCSInventory-Agent-Setup-Macos-${{ github.ref_name }}.tar.xz" "$PKG"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-archive
+          path: OCSInventory-Agent-Setup-Macos-*.tar.xz
+
+  build-linux-deb:
+    # Debian/Ubuntu family
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+
+      - run: dart pub get
+
+      - name: Build agent CLI
+        run: dart compile exe lib/app/app.dart -o setup/linux/ocsinventory-cli
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          PKG="OCSInventory-Agent-Linux-Deb-Setup"
+          mkdir "$PKG"
+          cp setup/linux/install.sh setup/linux/uninstall.sh \
+             setup/linux/ocsinventory-agent.service setup/linux/ocsinventory-cli "$PKG/"
+          chmod +x "$PKG/install.sh" "$PKG/uninstall.sh" "$PKG/ocsinventory-cli"
+          tar -cJf "OCSInventory-Agent-Setup-Linux-Deb-${{ github.ref_name }}.tar.xz" "$PKG"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb-archive
+          path: OCSInventory-Agent-Setup-Linux-Deb-*.tar.xz
+
+  build-linux-rhel:
+    # RHEL/Fedora family
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dart SDK
+        run: |
+          dnf install -y -q curl unzip
+          curl -fsSL -o dart-sdk.zip "https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-x64-release.zip"
+          unzip -q dart-sdk.zip
+          echo "$PWD/dart-sdk/bin" >> "$GITHUB_PATH"
+
+      - run: dart pub get
+
+      - name: Build agent CLI
+        run: dart compile exe lib/app/app.dart -o setup/linux/ocsinventory-cli
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          PKG="OCSInventory-Agent-Linux-Rhel-Setup"
+          mkdir "$PKG"
+          cp setup/linux/install.sh setup/linux/uninstall.sh \
+             setup/linux/ocsinventory-agent.service setup/linux/ocsinventory-cli "$PKG/"
+          chmod +x "$PKG/install.sh" "$PKG/uninstall.sh" "$PKG/ocsinventory-cli"
+          tar -cJf "OCSInventory-Agent-Setup-Linux-Rhel-${{ github.ref_name }}.tar.xz" "$PKG"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-rhel-archive
+          path: OCSInventory-Agent-Setup-Linux-Rhel-*.tar.xz
+
+  release:
+    needs: [build-windows, build-macos, build-linux-deb, build-linux-rhel]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "OCS Inventory Agent ${{ github.ref_name }}"
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          body: |
+            OCS Inventory Agent ${{ github.ref_name }}.
+
+            These installers are unsigned (no Authenticode/notarization yet).
+
+            If you are upgrading from version 2.X, check our documentation to see what's changed and our migration guide:
+            - https://documentation.ocsinventory-ng.org/project-overview/v2-vs-v3-whats-changed#agent-client
+            - https://documentation.ocsinventory-ng.org/project-overview/migration-guide
+          files: |
+            artifacts/windows-installer/*.exe
+            artifacts/macos-archive/*.tar.xz
+            artifacts/linux-deb-archive/*.tar.xz
+            artifacts/linux-rhel-archive/*.tar.xz
