@@ -164,8 +164,6 @@ jobs:
           body: |
             OCS Inventory Agent ${{ github.ref_name }}.
 
-            These installers are unsigned (no Authenticode/notarization yet).
-
             If you are upgrading from version 2.X, check our documentation to see what's changed and our migration guide:
             - https://documentation.ocsinventory-ng.org/project-overview/v2-vs-v3-whats-changed#agent-client
             - https://documentation.ocsinventory-ng.org/project-overview/migration-guide
