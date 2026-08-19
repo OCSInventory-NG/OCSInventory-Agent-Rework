@@ -312,17 +312,40 @@ void main(List<String> args) async {
     if (await inventory.checkApi()) {
       // Inventory process
       await inventory.checkInventoryExist(body);
-      await inventory.checkAndApplyConfig();
 
-      if (inventory.getMode() == 2 || inventory.getMode() == 1) {
-        await inventory.sendRemoteBaseInventory(body);
-        if (inventory.getMode() == 1) {
-          await inventory.sendRemoteTemplateInventory(body);
+      List<String> missingInventoryPermissions = inventory
+          .missingPermissions(Inventory.requiredInventoryPermissions);
+
+      if (missingInventoryPermissions.isEmpty) {
+        await inventory.checkAndApplyConfig();
+
+        if (inventory.getMode() == 2 || inventory.getMode() == 1) {
+          await inventory.sendRemoteBaseInventory(body);
+          if (inventory.getMode() == 1) {
+            await inventory.sendRemoteTemplateInventory(body);
+          }
         }
+      } else {
+        String message = sprintf(
+            "Inventory module skipped: agent account lacks permissions %s.",
+            [missingInventoryPermissions.join(", ")]);
+        logger.error("APP", message);
+        logger.serverLogger(inventory.assetID, 10, message);
       }
 
-      // Deployment process
-      await deployment.processDeployment(os, inventory.assetID);
+      List<String> missingDeploymentPermissions = inventory
+          .missingPermissions(Inventory.requiredDeploymentPermissions);
+
+      if (missingDeploymentPermissions.isEmpty) {
+        // Deployment process
+        await deployment.processDeployment(os, inventory.assetID);
+      } else {
+        String message = sprintf(
+            "Deployment module skipped: agent account lacks permissions %s.",
+            [missingDeploymentPermissions.join(", ")]);
+        logger.warning("APP", message);
+        logger.serverLogger(inventory.assetID, 8, message);
+      }
     }
   } else if (inventory.getMode() == 3 || inventory.getMode() == 4) {
     await inventory.sendLocalBaseInventory(body);

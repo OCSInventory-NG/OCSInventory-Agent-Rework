@@ -46,6 +46,26 @@ class Inventory {
   late int assetID;
   late bool templateChanged = false;
 
+  List<String> permissions = [];
+
+  /// Permissions required for the Inventory module (AgentInventory group).
+  static const List<String> requiredInventoryPermissions = [
+    "config_view_config",
+    "log_add_log",
+    "inventory_base_add_inventorybase",
+    "inventory_base_change_inventorybase",
+    "inventory_base_view_inventorybase",
+    "template_view_template",
+  ];
+
+  /// Permissions required for the Deployment module (AgentDeployment group).
+  static const List<String> requiredDeploymentPermissions = [
+    "action_view_deploymentaction",
+    "result_view_result",
+    "result_change_result",
+    "log_add_log",
+  ];
+
   late String inventoryFileName;
   late File inventoryFile;
   late File inventoryBase64;
@@ -127,12 +147,43 @@ class Inventory {
         }
 
         await generateToken(username, password);
+        await fetchPermissions();
       } catch (e) {
         logger.error(this.runtimeType.toString(), "Configuration error: $e");
       }
 
       return true;
     }
+  }
+
+  /// Retrieve the permissions granted to the agent account, using the same
+  /// endpoint (/myaccount/) as the web UI.
+  Future<void> fetchPermissions() async {
+    try {
+      dynamic response = await httpUtils.get(
+        Uri.parse("$baseUrl/myaccount/"),
+        httpUtils.getHeader(),
+      );
+
+      if (response?["status_code"] == 200) {
+        Map<String, dynamic> body = jsonDecode(response["body"]);
+        permissions = List<String>.from(body["full_permissions"] ?? []);
+      } else {
+        logger.error(this.runtimeType.toString(),
+            "Unable to retrieve agent account permissions.");
+      }
+    } catch (e) {
+      logger.error(this.runtimeType.toString(),
+          "Error while retrieving agent account permissions: $e");
+    }
+  }
+
+  /// Return the permissions from [required] that are not granted to the
+  /// agent account.
+  List<String> missingPermissions(List<String> required) {
+    return required
+        .where((permission) => !permissions.contains(permission))
+        .toList();
   }
 
   /// Get one or more inventory config values as a String.
