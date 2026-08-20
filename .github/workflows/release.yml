@@ -87,11 +87,21 @@ jobs:
 
   build-linux-deb:
     # Debian/Ubuntu family
+    #
+    # Fetched directly rather than via dart-lang/setup-dart, same as
+    # build-linux-rhel: that action resolves "latest stable" through a JSON
+    # endpoint which has been seen returning an XML error body (transient
+    # throttling) - a plain zip download has nothing to parse, so nothing
+    # to fail that way.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dart-lang/setup-dart@v1
+      - name: Install Dart SDK
+        run: |
+          curl -fsSL -o dart-sdk.zip "https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-x64-release.zip"
+          unzip -q dart-sdk.zip
+          echo "$PWD/dart-sdk/bin" >> "$GITHUB_PATH"
 
       - run: dart pub get
 
