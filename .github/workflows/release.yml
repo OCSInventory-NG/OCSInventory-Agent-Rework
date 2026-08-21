@@ -91,7 +91,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dart-lang/setup-dart@v1
+      - name: Install Dart SDK
+        run: |
+          curl -fsSL -o dart-sdk.zip "https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-x64-release.zip"
+          unzip -q dart-sdk.zip
+          echo "$PWD/dart-sdk/bin" >> "$GITHUB_PATH"
 
       - run: dart pub get
 
