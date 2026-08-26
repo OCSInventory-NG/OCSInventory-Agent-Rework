@@ -721,6 +721,8 @@ class Inventory {
       for (var section in sections) {
         // skip sections disabled server-side, they shouldn't be collected
         if (section['is_active'] == false) {
+          logger.info(this.runtimeType.toString(),
+              'Skipping disabled section [${section['name']}]');
           continue;
         }
 
