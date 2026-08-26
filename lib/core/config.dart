@@ -40,7 +40,7 @@ class Config {
 
   static late Map<String, dynamic> configFileContent = {};
 
-  static const String agentVersion = "3.0.0";
+  static const String agentVersion = "3.0.0-rc2";
 
   /// Constructor.
   Config(String configPath, String configContent) {

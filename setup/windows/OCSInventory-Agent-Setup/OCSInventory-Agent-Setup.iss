@@ -1,5 +1,5 @@
 #define AppName "OCS Inventory Agent"
-#define AppVersion "3.0.0"
+#define AppVersion "3.0.0-rc2"
 #define AppPublisher "OCS Inventory"
 #define AppURL "https//www.ocsinventory.com/"
 #define AppExeName "ocsinventory-agent.exe"

@@ -9,7 +9,7 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationIcon>OCSInventory.ico</ApplicationIcon>
     <BaseOutputPath>$(MSBuildProjectDirectory)\..\OCSInventory-Agent-Setup\payload\OCSInventory-Service</BaseOutputPath>
-    <Version>3.0.0.0</Version>
+    <Version>3.0.0-rc2</Version>
     <UseWindowsService>true</UseWindowsService>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
