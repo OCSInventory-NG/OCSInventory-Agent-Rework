@@ -719,6 +719,11 @@ class Inventory {
 
     if (sections.isNotEmpty) {
       for (var section in sections) {
+        // skip sections disabled server-side, they shouldn't be collected
+        if (section['is_active'] == false) {
+          continue;
+        }
+
         // result contains both the section result and the overrided fields results
         result = await getSectionResult(os, template, section);
 
