@@ -25,11 +25,11 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dart-lang/setup-dart@v1
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "9.0.x"
 
@@ -52,7 +52,7 @@ jobs:
           $built = Get-ChildItem -Recurse -Path setup\windows\OCSInventory-Agent-Setup\OCSInventory-Agent-Setup -Filter *.exe | Select-Object -First 1
           Copy-Item $built.FullName "OCSInventory-Agent-Setup-Windows-${{ github.ref_name }}.exe"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: OCSInventory-Agent-Setup-Windows-*.exe
@@ -60,7 +60,7 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dart-lang/setup-dart@v1
 
@@ -80,7 +80,7 @@ jobs:
           chmod +x "$PKG/install.sh" "$PKG/uninstall.sh" "$PKG/ocsinventory-cli"
           tar -cJf "OCSInventory-Agent-Setup-Macos-${{ github.ref_name }}.tar.xz" "$PKG"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-archive
           path: OCSInventory-Agent-Setup-Macos-*.tar.xz
@@ -89,7 +89,7 @@ jobs:
     # Debian/Ubuntu family
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Dart SDK
         run: |
@@ -112,7 +112,7 @@ jobs:
           chmod +x "$PKG/install.sh" "$PKG/uninstall.sh" "$PKG/ocsinventory-cli"
           tar -cJf "OCSInventory-Agent-Setup-Linux-Deb-${{ github.ref_name }}.tar.xz" "$PKG"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-deb-archive
           path: OCSInventory-Agent-Setup-Linux-Deb-*.tar.xz
@@ -122,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Dart SDK
         run: |
@@ -146,7 +146,7 @@ jobs:
           chmod +x "$PKG/install.sh" "$PKG/uninstall.sh" "$PKG/ocsinventory-cli"
           tar -cJf "OCSInventory-Agent-Setup-Linux-Rhel-${{ github.ref_name }}.tar.xz" "$PKG"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-rhel-archive
           path: OCSInventory-Agent-Setup-Linux-Rhel-*.tar.xz
@@ -155,12 +155,12 @@ jobs:
     needs: [build-windows, build-macos, build-linux-deb, build-linux-rhel]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4.1.3
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: "OCS Inventory Agent ${{ github.ref_name }}"
           prerelease: ${{ contains(github.ref_name, '-') }}
