@@ -1,3 +1,4 @@
+---
 name: Release
 
 # Publishes a GitHub Release automatically for every version tag, building
@@ -13,10 +14,10 @@ name: Release
 # notarization). The installers this produces are unsigned, same as the
 # existing manually-built 3.0.0-rc1 release - SmartScreen/Gatekeeper will
 # warn users. Revisit once certificates are available.
-on:
+"on":
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+*'
+      - "[0-9]+.[0-9]+.[0-9]+*"
 
 permissions:
   contents: write
