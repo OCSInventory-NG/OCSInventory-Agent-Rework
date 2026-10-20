@@ -146,8 +146,10 @@ void main(List<String> args) async {
   int logLevel = 2;
   if (allArgs.wasParsed("log_level")) {
     logLevel = int.parse(allArgs.option("log_level").toString());
-    if (logLevel < 0 || logLevel > 3) {
-      stdout.writeln("Log level must be between 0 and 3. Defaulted to 2.");
+    if (logLevel < 0 || logLevel > 4) {
+      stdout.writeln(
+          "Log level must be between 0 and 4. Defaulted to 2 (Warning).");
+      logLevel = 2;
     }
   }
 
