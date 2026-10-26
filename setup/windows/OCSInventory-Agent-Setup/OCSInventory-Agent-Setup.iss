@@ -1,5 +1,8 @@
 #define AppName "OCS Inventory Agent"
-#define AppVersion "3.0.0-rc2"
+; Set to the release tag by .github/workflows/release.yml (/DAppVersion)
+#ifndef AppVersion
+  #define AppVersion "dev"
+#endif
 #define AppPublisher "OCS Inventory"
 #define AppURL "https//www.ocsinventory.com/"
 #define AppExeName "ocsinventory-agent.exe"

@@ -40,7 +40,9 @@ class Config {
 
   static late Map<String, dynamic> configFileContent = {};
 
-  static const String agentVersion = "3.0.0-rc2";
+  /// Set to the release tag by .github/workflows/release.yml (-DAPP_VERSION).
+  static const String agentVersion =
+      String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
 
   /// Constructor.
   Config(String configPath, String configContent) {
