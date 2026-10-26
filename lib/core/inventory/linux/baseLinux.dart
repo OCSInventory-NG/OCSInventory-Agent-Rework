@@ -127,12 +127,16 @@ class BaseLinux {
 
     dynamic body = ({
       "name": name,
-      "description": osRelease["PRETTY_NAME"].toString() +
-          " " +
-          hostnamectl["Architecture"].toString(),
+      // A missing value must not be sent as "null": os-release(5) defaults
+      // NAME and PRETTY_NAME to "Linux", rolling releases such as Arch Linux
+      // have no VERSION_ID, and hostnamectl is missing without systemd
+      "description": ((osRelease["PRETTY_NAME"] ?? "Linux") +
+              " " +
+              (hostnamectl["Architecture"] ?? ""))
+          .trim(),
       "serial": await _getSerialNumber(name, macAddress),
-      "osname": osRelease["NAME"].toString(),
-      "osversion": osRelease["VERSION_ID"].toString(),
+      "osname": osRelease["NAME"] ?? "Linux",
+      "osversion": osRelease["VERSION_ID"] ?? "",
       "uuid": await _getUUID(),
       "srcip": (await commands.processTarget(
               "BASH", "hostname -I", logType, "IP ADDRESS"))["value"]
