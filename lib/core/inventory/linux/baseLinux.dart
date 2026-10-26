@@ -54,8 +54,11 @@ class BaseLinux {
         .split("\n");
     Map<String, String> osRelease = {};
     for (final info in getOSRelease) {
-      RegExp exp = RegExp(r'(?<key>[\S]+?)="(?<value>[\S\s]+?)"');
-      RegExpMatch? match = exp.firstMatch(info);
+      // Values are quoted only when they need it, see os-release(5):
+      // Fedora writes VERSION_ID=44 and Arch Linux writes ID=arch
+      RegExp exp = RegExp(
+          r'^(?<key>[A-Z0-9_]+)=(?<quote>["\x27]?)(?<value>.*)\k<quote>$');
+      RegExpMatch? match = exp.firstMatch(info.trim());
       if (match != null) {
         final entry = <String, String>{
           match.namedGroup("key").toString():
