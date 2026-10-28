@@ -131,10 +131,7 @@ class BaseLinux {
       "osname": osRelease["NAME"].toString(),
       "osversion": osRelease["VERSION_ID"].toString(),
       "uuid": await _getUUID(),
-      "srcip": (await commands.processTarget(
-              "BASH", "hostname -I", logType, "IP ADDRESS"))["value"]
-          .toString()
-          .split(" ")[0],
+      "srcip": await _getIPAddress(),
       "srcmac": macAddressList,
       "domain": (await commands.processTarget(
           "BASH", "hostname -d", logType, "DOMAIN"))["value"],
@@ -152,6 +149,27 @@ class BaseLinux {
       "BASH", "which $cmd", logType, "CHECK COMMAND",
     );
     return result["value"] != null && result["value"].toString().isNotEmpty;
+  }
+
+  /// Returns the first global address of the host, IPv4 before IPv6.
+  ///
+  /// hostname -I gave this address on Debian and RHEL based systems only:
+  /// the hostname of inetutils (Arch Linux) and of BusyBox has no -I
+  /// option. ip is already required to find the MAC addresses, and its
+  /// global scope leaves out loopback and link-local addresses, as -I does.
+  Future<String> _getIPAddress() async {
+    final result = await commands.processTarget(
+      "BASH", "ip -o addr show scope global", logType, "IP ADDRESS",
+    );
+    final String addresses = result["value"].toString();
+    for (final family in ["inet", "inet6"]) {
+      final match = RegExp(r'\s' + family + r' (?<ip>[0-9a-fA-F.:]+)/')
+          .firstMatch(addresses);
+      if (match != null) {
+        return match.namedGroup("ip")!;
+      }
+    }
+    return "";
   }
 
   /// Detects whether the process is running inside a container (LXC, Docker,
