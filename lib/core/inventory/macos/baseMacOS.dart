@@ -89,7 +89,7 @@ class BaseMacOS {
             "BASH", "scutil --dns", logType, "DOMAIN"))["value"]
         .toString();
     RegExp regexpDomain;
-    regexpDomain = RegExp(r'(?<=search\sdomain\[0\]\s:\s)\w*.[a-z]{0,4}');
+    regexpDomain = RegExp(r'(?<=search\sdomain\[0\]\s:\s)\S+');
     String? getDomain;
     getDomain = regexpDomain.stringMatch(listDomains)?.trim() ?? "";
 
