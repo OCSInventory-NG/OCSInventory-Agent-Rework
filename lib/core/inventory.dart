@@ -28,6 +28,7 @@ import 'package:ocsinventory_agent/core/inventory/commands.dart';
 import 'package:ocsinventory_agent/core/inventory/format.dart';
 
 // Common imports
+import 'package:ocsinventory_agent/core/common/admin_data.dart';
 import 'package:ocsinventory_agent/core/common/files_utils.dart';
 import 'package:ocsinventory_agent/core/common/http_utils.dart';
 import 'package:ocsinventory_agent/core/common/json_utils.dart';
@@ -837,6 +838,29 @@ class Inventory {
     }
 
     return result;
+  }
+
+  /// Returns a copy of [body] with the admin_data of config.json added.
+  /// A copy, as the OS body may be a Map<String, String>.
+  dynamic withAdminData(dynamic body) {
+    if (body is! Map) return body;
+
+    dynamic raw = config.getInventoryConfig("admin_data");
+    if (raw == null) return body;
+    if (raw is! String) {
+      logger.warning(this.runtimeType.toString(),
+          "Admin data ignored, admin_data must be a string in config.json.");
+      return body;
+    }
+
+    Map<String, String> adminData = AdminData.parse(raw,
+        warn: (message) =>
+            logger.warning(this.runtimeType.toString(), message));
+    if (adminData.isEmpty) return body;
+
+    logger.debug(this.runtimeType.toString(),
+        sprintf("Admin data sent: %s", [adminData.keys.join(", ")]));
+    return Map<String, dynamic>.from(body)..["admin_data"] = adminData;
   }
 
   /// Create or update the inventory and send it to the server.
