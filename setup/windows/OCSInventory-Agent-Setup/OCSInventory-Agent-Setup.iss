@@ -49,7 +49,7 @@ var
   INSTALL_AS_A_SERVICE, RUN_NOW: Boolean;
   ConnectionInputPage: TInputQueryWizardPage;
   CheckPage, ConfigPage: TWizardPage;
-  URL, USERNAME, PASSWORD, CERTIFICATE, STORE_DATA_PATH, CONFIG_PATH, LOG_PATH, INSTALL_PATH, BYPASS_CERT: String;
+  URL, USERNAME, PASSWORD, CERTIFICATE, STORE_DATA_PATH, CONFIG_PATH, LOG_PATH, INSTALL_PATH, BYPASS_CERT, ADMIN_DATA: String;
   INVENTORY_MODE, LOG_LEVEL: Integer;
   AgentModeCombo, LogLevelCombo: TNewComboBox;
   InstallAsAServiceCheckBox, RunNowCheckBox, ValidateCertCheckBox: TNewCheckBox;
@@ -77,6 +77,60 @@ var
 begin
   S := ExpandConstant('{cm:' + Key + '}');
   StringChangeEx(S, '#13#10', #13#10, True);
+  Result := S;
+end;
+
+{ True when one of the Name=value pairs of AdminData is named TAG (case ignored) }
+function AdminDataSetsTag(const AdminData: string): Boolean;
+var
+  Rest, Segment: string;
+  P: Integer;
+begin
+  Result := False;
+  Rest := AdminData;
+  while Rest <> '' do
+  begin
+    P := Pos(';', Rest);
+    if P > 0 then
+    begin
+      Segment := Copy(Rest, 1, P - 1);
+      Rest := Copy(Rest, P + 1, Length(Rest));
+    end
+    else
+    begin
+      Segment := Rest;
+      Rest := '';
+    end;
+
+    P := Pos('=', Segment);
+    if (P > 0) and (Lowercase(Trim(Copy(Segment, 1, P - 1))) = 'tag') then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+{ /ADMIN_DATA, plus TAG=<value> from /TAG when /ADMIN_DATA does not set TAG }
+function BuildAdminData(const AdminData, TagValue: string): string;
+begin
+  Result := AdminData;
+  if (TagValue <> '') and (not AdminDataSetsTag(AdminData)) then
+  begin
+    if Result <> '' then
+      Result := Result + ';';
+    Result := Result + 'TAG=' + TagValue;
+  end;
+end;
+
+{ Escape a value for a JSON string }
+function JsonEscape(const Value: string): string;
+var
+  S: string;
+begin
+  S := Value;
+  StringChangeEx(S, '\', '\\', True);
+  StringChangeEx(S, '"', '\"', True);
   Result := S;
 end;
 
@@ -455,7 +509,7 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   TotalSteps, Step, ResultCode: Integer;
-  tmp: string;
+  tmp, AdminDataJson: string;
 
 begin
   if (CurStep = ssInstall) and (not DidPreUninstall) then
@@ -520,6 +574,16 @@ begin
            BoolToStr(RunNowCheckBox.Checked), BoolToStr(InstallAsAServiceCheckBox.Checked)]));
     end;
 
+    { Command line only, in silent and wizard mode alike }
+    ADMIN_DATA := BuildAdminData(Trim(ExpandConstant('{param:ADMIN_DATA}')),
+                                 Trim(ExpandConstant('{param:TAG}')));
+    AdminDataJson := '';
+    if ADMIN_DATA <> '' then
+    begin
+      Log(Format(ExpandConstant('{cm:AdminDataParameter}'), [ADMIN_DATA]));
+      AdminDataJson := ', "admin_data": "' + JsonEscape(ADMIN_DATA) + '"';
+    end;
+
     STORE_DATA_PATH := ExpandConstant('{commonappdata}\OCSInventory-Agent');
     CONFIG_PATH := STORE_DATA_PATH + '\config.json';
     LOG_PATH := STORE_DATA_PATH + '\ocsinventory-agent.log';
@@ -566,7 +630,7 @@ begin
 
     if SaveStringToFile(
          CONFIG_PATH,
-         Format('{"url": "%s", "username": "%s", "password": "%s", "certificate": "%s", "bypass-certificate": %s, "log_file": true, "log_level": %d, "mode": %d, "data_directory": "%s", "log_file_path": "%s", "install_directory": "%s", "execution_timeout": 120}', [URL, USERNAME, PASSWORD, CERTIFICATE, BYPASS_CERT, LOG_LEVEL, INVENTORY_MODE, STORE_DATA_PATH, LOG_PATH, INSTALL_PATH]),
+         Format('{"url": "%s", "username": "%s", "password": "%s", "certificate": "%s", "bypass-certificate": %s, "log_file": true, "log_level": %d, "mode": %d, "data_directory": "%s", "log_file_path": "%s", "install_directory": "%s", "execution_timeout": 120%s}', [URL, USERNAME, PASSWORD, CERTIFICATE, BYPASS_CERT, LOG_LEVEL, INVENTORY_MODE, STORE_DATA_PATH, LOG_PATH, INSTALL_PATH, AdminDataJson]),
          False) then
       Log(Format(ExpandConstant('{cm:ConfigurationFileCreatedSuccessfully}'), [CONFIG_PATH]))
     else
@@ -716,6 +780,7 @@ end;
 
 [CustomMessages]
 // Custom messages for the setup wizard
+AdminDataParameter=Administrative data: %s
 AgentConfigurationPageDescription=Please specify your own agent settings.
 AgentConfigurationPageTitle=Agent configuration
 AgentMode=Inventory mode
@@ -781,6 +846,7 @@ ValidateCertificate=Validate certificate
 VerboseSectionTitle=Verbose
 WaitingUserToEnterInputs=Waiting for user to enter inputs...
 
+french.AdminDataParameter=Données administratives : %s
 french.AgentConfigurationPageDescription=Veuillez spécifier vos propres paramètres d'agent.
 french.AgentConfigurationPageTitle=Configuration de l'agent
 french.AgentMode=Mode d'inventaire
