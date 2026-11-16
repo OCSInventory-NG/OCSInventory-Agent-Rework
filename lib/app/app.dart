@@ -108,6 +108,11 @@ void main(List<String> args) async {
       help: "execution_timeout",
       valueHelp: "Maximum time (in seconds) a single inventory command can run before being killed",
       defaultsTo: "120");
+  parser.addOption("admin_data",
+      help:
+          "Administrative data sent with each inventory, filled on the server only where empty",
+      valueHelp: "TAG=client1;Site=Paris;Usage=Office,Dev",
+      defaultsTo: "");
   parser.addFlag("help",
       abbr: "h", help: "Display this help message", negatable: false);
 
@@ -211,6 +216,8 @@ void main(List<String> args) async {
       await allArgs.option("certificate").toString();
   inventoryConfigurations["bypass-certificate"] = bypassCertificate;
   inventoryConfigurations['execution_timeout'] = executionTimeout;
+  inventoryConfigurations['admin_data'] =
+      allArgs.option("admin_data") ?? "";
 
   config = await Config(
       configDirectory, jsonEncode(inventoryConfigurations).toString());
@@ -307,6 +314,9 @@ void main(List<String> args) async {
   } else {
     logger.error("APP", "The detected operating system is unsupported.");
   }
+
+  // Add the admin_data of config.json to the body
+  body = inventory.withAdminData(body);
 
   if (inventory.getMode() == 0 ||
       inventory.getMode() == 1 ||
