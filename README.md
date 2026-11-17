@@ -322,12 +322,12 @@ In this file, there are properties to configure the agent:
 
 The agent can push values for the administrative data (accountinfo) defined on the server, for example a `TAG` to tell which customer a computer belongs to. The values are given at install time and saved in the `admin_data` property of `config.json`:
 
-| Platform     | Option                                   |
-|:-------------|:-----------------------------------------|
-| Windows      | `/ADMIN_DATA="TAG=client1;Site=Paris"`   |
-| Windows      | `/TAG=client1`                           |
-| Linux, macOS | `--admin-data "TAG=client1;Site=Paris"`  |
-| Linux, macOS | `--tag client1`                          |
+| Platform     | Option                                                                                         |
+|:-------------|:-----------------------------------------------------------------------------------------------|
+| Windows      | `/ADMIN_DATA="TAG=client1;Site=Paris"`                                                         |
+| Windows      | `/TAG=client1`                                                                                 |
+| Linux, macOS | `--admin-data "TAG=client1;Site=Paris"`                                                        |
+| Linux, macOS | `--tag client1`                                                                                |
 | Agent binary | `--admin_data "TAG=client1;Site=Paris"`, saved in `config.json` with `--overwrite_config true` |
 
 - Pairs are separated by `;`, the name from its value by the first `=`. Several labels of a checkbox field are separated by `,`: `Usage=Office,Dev`.
