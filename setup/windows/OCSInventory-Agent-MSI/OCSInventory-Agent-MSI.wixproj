@@ -1,0 +1,16 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <!-- Numeric MSI version, set from the release tag by .github/workflows/release.yml (-p:AgentVersion) -->
+    <AgentVersion Condition="'$(AgentVersion)' == ''">0.0.0</AgentVersion>
+    <OutputName>OCSInventory-Agent-Setup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- Same binaries as the Inno Setup installer, built by setup\windows\build_all.bat -->
+    <PayloadDir>$(MSBuildProjectDirectory)\..\OCSInventory-Agent-Setup\payload</PayloadDir>
+    <AssetsDir>$(MSBuildProjectDirectory)\..\OCSInventory-Agent-Setup\assets</AssetsDir>
+    <DefineConstants>AgentVersion=$(AgentVersion);PayloadDir=$(PayloadDir);AssetsDir=$(AssetsDir)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="CustomActions\OCSInventoryCustomActions.csproj" />
+  </ItemGroup>
+</Project>
