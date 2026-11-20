@@ -30,16 +30,16 @@ Files:
 
 ## Public properties
 
-| Property | `.exe` equivalent | Values | Default | Notes |
-|---|---|---|---|---|
-| `OCS_URL` | `/URL=` | server URL | — | required unless `config.json` already exists |
-| `OCS_USERNAME` | `/USERNAME=` | text | — | `USERNAME` is reserved by Windows Installer |
-| `OCS_PASSWORD` | `/PASSWORD=` | text | — | hidden, never written to the MSI log |
-| `OCS_CERTIFICATE` | `/CERTIFICATE=` | path | — | the file must exist on the machine |
-| `OCS_MODE` | `/MODE=` | `0`-`4` | `1` | |
-| `OCS_LOG_LEVEL` | `/LOG_LEVEL=` | `0`-`4` | `3` | |
-| `OCS_BYPASS_CERT` | `/BYPASS_CERT=` | `0`/`1`/`true`/`false` | `0` | |
-| `INSTALLFOLDER` | `/DIR=` | path | `[ProgramFiles64Folder]OCS Inventory Agent` | |
+| Property          | `.exe` equivalent | Values                 | Default                                     | Notes                                        |
+|-------------------|-------------------|------------------------|---------------------------------------------|----------------------------------------------|
+| `OCS_URL`         | `/URL=`           | server URL             | —                                           | required unless `config.json` already exists |
+| `OCS_USERNAME`    | `/USERNAME=`      | text                   | —                                           | `USERNAME` is reserved by Windows Installer  |
+| `OCS_PASSWORD`    | `/PASSWORD=`      | text                   | —                                           | hidden, never written to the MSI log         |
+| `OCS_CERTIFICATE` | `/CERTIFICATE=`   | path                   | —                                           | the file must exist on the machine           |
+| `OCS_MODE`        | `/MODE=`          | `0`-`4`                | `1`                                         |                                              |
+| `OCS_LOG_LEVEL`   | `/LOG_LEVEL=`     | `0`-`4`                | `3`                                         |                                              |
+| `OCS_BYPASS_CERT` | `/BYPASS_CERT=`   | `0`/`1`/`true`/`false` | `0`                                         |                                              |
+| `INSTALLFOLDER`   | `/DIR=`           | path                   | `[ProgramFiles64Folder]OCS Inventory Agent` |                                              |
 
 Not supported: `/SERVICE=` (the service is always installed) and `/NOW=` (the service starts the agent).
 Silent mode uses the standard `msiexec` options (`/qn`).
@@ -68,10 +68,10 @@ Silent mode uses the standard `msiexec` options (`/qn`).
 
 An MSI only accepts a numeric `major.minor.build` version. The pre-release suffix of the tag is dropped:
 
-| Tag | MSI version |
-|---|---|
-| `3.1.0-rc1` | `3.1.0` |
-| `3.1.0` | `3.1.0` |
+| Tag         | MSI version |
+|-------------|-------------|
+| `3.1.0-rc1` | `3.1.0`     |
+| `3.1.0`     | `3.1.0`     |
 
 Installing the same version again replaces the installed one, so `3.1.0` replaces `3.1.0-rc1`.
 As a consequence, `3.1.0-rc1` installed over `3.1.0` also replaces it instead of being refused.
@@ -90,12 +90,12 @@ msiexec /x OCSInventory-Agent-Setup-Windows-3.1.0.msi /qn
 
 ## Exit codes
 
-| Case | Code |
-|---|---|
-| Success | `0` |
-| Success, reboot required | `3010` |
-| Launch condition not met (no `OCS_URL`, downgrade) | `1603`, with the reason in the log |
-| 32-bit Windows | `1633` (the package is x64 only, refused by Windows Installer itself) |
+| Case                                               | Code                                                                  |
+|----------------------------------------------------|-----------------------------------------------------------------------|
+| Success                                            | `0`                                                                   |
+| Success, reboot required                           | `3010`                                                                |
+| Launch condition not met (no `OCS_URL`, downgrade) | `1603`, with the reason in the log                                    |
+| 32-bit Windows                                     | `1633` (the package is x64 only, refused by Windows Installer itself) |
 
 ## Open points
 

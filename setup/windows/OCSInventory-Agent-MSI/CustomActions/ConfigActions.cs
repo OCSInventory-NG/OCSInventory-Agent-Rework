@@ -10,8 +10,14 @@ namespace OCSInventoryCustomActions
     {
         private static readonly string[] PropertyNames =
         {
-            "OCS_URL", "OCS_USERNAME", "OCS_PASSWORD", "OCS_CERTIFICATE",
-            "OCS_MODE", "OCS_LOG_LEVEL", "OCS_BYPASS_CERT", "INSTALLFOLDER",
+            "OCS_URL",
+            "OCS_USERNAME",
+            "OCS_PASSWORD",
+            "OCS_CERTIFICATE",
+            "OCS_MODE",
+            "OCS_LOG_LEVEL",
+            "OCS_BYPASS_CERT",
+            "INSTALLFOLDER",
         };
 
         // Deferred actions cannot read properties: they receive them through
@@ -40,9 +46,11 @@ namespace OCSInventoryCustomActions
             AddString(updates, data, "OCS_USERNAME", "username");
             AddString(updates, data, "OCS_PASSWORD", "password");
             AddString(updates, data, "OCS_CERTIFICATE", "certificate");
-            if (!AddLevel(session, updates, data, "OCS_MODE", "mode")
+            if (
+                !AddLevel(session, updates, data, "OCS_MODE", "mode")
                 || !AddLevel(session, updates, data, "OCS_LOG_LEVEL", "log_level")
-                || !AddBool(session, updates, data, "OCS_BYPASS_CERT", "bypass-certificate"))
+                || !AddBool(session, updates, data, "OCS_BYPASS_CERT", "bypass-certificate")
+            )
             {
                 return ActionResult.Failure;
             }
@@ -50,7 +58,8 @@ namespace OCSInventoryCustomActions
 
             var dataDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "OCSInventory-Agent");
+                "OCSInventory-Agent"
+            );
             var configPath = Path.Combine(dataDir, "config.json");
             var serializer = new JavaScriptSerializer();
 
@@ -58,7 +67,9 @@ namespace OCSInventoryCustomActions
             if (File.Exists(configPath))
             {
                 session.Log("Updating configuration file " + configPath);
-                config = serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(configPath));
+                config = serializer.Deserialize<Dictionary<string, object>>(
+                    File.ReadAllText(configPath)
+                );
                 if (config == null)
                 {
                     throw new InvalidDataException(configPath + " does not contain a JSON object.");
@@ -102,7 +113,12 @@ namespace OCSInventoryCustomActions
             };
         }
 
-        private static void AddString(Dictionary<string, object> updates, CustomActionData data, string property, string key)
+        private static void AddString(
+            Dictionary<string, object> updates,
+            CustomActionData data,
+            string property,
+            string key
+        )
         {
             if (!string.IsNullOrEmpty(data[property]))
             {
@@ -110,7 +126,13 @@ namespace OCSInventoryCustomActions
             }
         }
 
-        private static bool AddLevel(Session session, Dictionary<string, object> updates, CustomActionData data, string property, string key)
+        private static bool AddLevel(
+            Session session,
+            Dictionary<string, object> updates,
+            CustomActionData data,
+            string property,
+            string key
+        )
         {
             var value = data[property];
             if (string.IsNullOrEmpty(value))
@@ -126,7 +148,13 @@ namespace OCSInventoryCustomActions
             return true;
         }
 
-        private static bool AddBool(Session session, Dictionary<string, object> updates, CustomActionData data, string property, string key)
+        private static bool AddBool(
+            Session session,
+            Dictionary<string, object> updates,
+            CustomActionData data,
+            string property,
+            string key
+        )
         {
             var value = data[property];
             if (string.IsNullOrEmpty(value))
