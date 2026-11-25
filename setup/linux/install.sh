@@ -29,6 +29,8 @@ usage() {
 	echo "      --log-file-path PATH          Path to the log file (default: /var/log/ocsinventory-agent.log)"
 	echo "  -c, --certificate CERTIFICATE     Path to the certificate file (default: null)"
 	echo "  -b, --bypass-certificate          Bypass certificate validation (default: false)"
+	echo "      --admin-data DATA             Administrative data, e.g. \"TAG=client1;Site=Paris\" (filled on the server only when empty)"
+	echo "      --tag TAG                     Adds TAG=<TAG> to the administrative data unless --admin-data sets TAG"
 	echo "  -s, --service                     Register the agent as a systemd service"
 	echo "  -n, --now                         Run the agent inventory immediately after installation"
 	echo "  -h, --help                        Display this help message"
@@ -142,8 +144,50 @@ copy_agent_contents() {
 	execCommand "ln -s $AGENT_BINARY$AGENT_EXEC $SYMBOLIC_LINK" "Created CLI symlink: $SYMBOLIC_LINK" "Failed to create CLI symlink."
 }
 
+# True when one of the Name=value pairs of $1 is named TAG (case ignored)
+admin_data_sets_tag() {
+	local rest="$1" segment name
+	while [ -n "$rest" ]; do
+		segment="${rest%%;*}"
+		if [ "$segment" = "$rest" ]; then
+			rest=""
+		else
+			rest="${rest#*;}"
+		fi
+		case "$segment" in
+		*=*)
+			name="$(printf '%s' "${segment%%=*}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')"
+			if [ "$name" = "tag" ]; then
+				return 0
+			fi
+			;;
+		esac
+	done
+	return 1
+}
+
+# --admin-data, plus TAG=<value> from --tag when --admin-data does not set TAG
+build_admin_data() {
+	local admin_data="$ADMIN_DATA"
+	if [ -n "$TAG" ] && ! admin_data_sets_tag "$admin_data"; then
+		admin_data="${admin_data:+$admin_data;}TAG=$TAG"
+	fi
+	printf '%s' "$admin_data"
+}
+
+# Escape a value for a JSON string (backslash and double quote)
+json_escape() {
+	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
 create_config_file() {
 	log "Creating configuration file..." false
+
+	local admin_data admin_data_json=""
+	admin_data="$(build_admin_data)"
+	if [ -n "$admin_data" ]; then
+		admin_data_json=", \"admin_data\": \"$(json_escape "$admin_data")\""
+	fi
 
 	if [ ! -d "$CONFIG_PATH" ]; then
 		execCommand "mkdir -p $CONFIG_PATH" "Created configuration directory: $CONFIG_PATH" "Failed to create configuration directory."
@@ -153,9 +197,15 @@ create_config_file() {
 
 	if [ ! -f "$CONFIG_PATH/config.json" ]; then
 		execCommand "touch $CONFIG_PATH/config.json" "Created configuration file: $CONFIG_PATH/config.json" "Failed to create configuration file."
-		echo "{\"url\": \"$URL\", \"username\": \"$USERNAME\", \"password\": \"$PASSWORD\", \"mode\": $INVENTORY_MODE, \"log_level\": $LOG_LEVEL, \"log_file\": $LOG_FILE, \"log_file_path\": \"$LOG_FILE_PATH\", \"data_directory\": \"$DATA_PATH\", \"certificate\": \"$CERTIFICATE\", \"bypass-certificate\": $BYPASS_CERTIFICATE, \"execution_timeout\": 120}" >"$CONFIG_PATH/config.json"
+		echo "{\"url\": \"$URL\", \"username\": \"$USERNAME\", \"password\": \"$PASSWORD\", \"mode\": $INVENTORY_MODE, \"log_level\": $LOG_LEVEL, \"log_file\": $LOG_FILE, \"log_file_path\": \"$LOG_FILE_PATH\", \"data_directory\": \"$DATA_PATH\", \"certificate\": \"$CERTIFICATE\", \"bypass-certificate\": $BYPASS_CERTIFICATE, \"execution_timeout\": 120$admin_data_json}" >"$CONFIG_PATH/config.json"
+		if [ -n "$admin_data" ]; then
+			log "Administrative data saved: $admin_data" false
+		fi
 	else
 		log "Configuration file already exists: $CONFIG_PATH/config.json" false
+		if [ -n "$admin_data" ]; then
+			log "Administrative data not saved, the configuration file already exists. To set it: ocsinventory-cli --admin_data \"$admin_data\" --overwrite_config true" false
+		fi
 	fi
 
 }
@@ -422,9 +472,11 @@ CERTIFICATE=""
 BYPASS_CERTIFICATE=false
 SERVICE=false
 NOW=false
+ADMIN_DATA=""
+TAG=""
 
 SHORT_OPTS="SU:u:p:m:d:l:c:snh"
-LONG_OPTS="silent,url:,username:,password:,mode:,data-path:,log-level:,log-file,log-file-path:,certificate:,bypass-certificate,service,now,help"
+LONG_OPTS="silent,url:,username:,password:,mode:,data-path:,log-level:,log-file,log-file-path:,certificate:,bypass-certificate,service,now,admin-data:,tag:,help"
 
 if ! PARSED_OPTIONS=$(getopt --options $SHORT_OPTS --longoptions $LONG_OPTS --name "$0" -- "$@"); then
 	usage
@@ -486,6 +538,14 @@ while true; do
 	-n | --now)
 		NOW=true
 		shift
+		;;
+	--admin-data)
+		ADMIN_DATA="$2"
+		shift 2
+		;;
+	--tag)
+		TAG="$2"
+		shift 2
 		;;
 	-h | --help)
 		usage

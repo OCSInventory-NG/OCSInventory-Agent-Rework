@@ -119,6 +119,8 @@ This is a list of all available `install.sh` script arguments:
     --log-file-path PATH              Path to the log file (default: /var/log/ocsinventory-agent/ocsinventory-agent.log)
 -c, --certificate CERTIFICATE         Path to the certificate file (default: null)
 -b, --bypass-certificate              Bypass certificate validation (default: false)
+    --admin-data DATA                 Administrative data, e.g. "TAG=client1;Site=Paris" (see Administrative data)
+    --tag TAG                         Adds TAG=<TAG> to the administrative data unless --admin-data sets TAG
 -s, --service                         Register the agent as a systemd service
 -n, --now                             Run the agent inventory immediately after installation
 -h, --help                            Display this help message
@@ -197,6 +199,8 @@ This is a list of all available arguments:
 /BYPASS_CERT=[0/1]          Bypass certificate validation (default: 0)
 /SERVICE=[0/1]              Register the agent as a windows service
 /NOW=[0/1]                  Run the agent inventory immediately after installation
+/ADMIN_DATA=data            Administrative data, e.g. /ADMIN_DATA="TAG=client1;Site=Paris" (see Administrative data)
+/TAG=tag                    Adds TAG=<tag> to the administrative data unless /ADMIN_DATA sets TAG
 ```
 
 Here an example command to use the installation script in non-interactive mode (silent enabled):
@@ -241,6 +245,8 @@ This is a list of all available `install.sh` script arguments:
     --log-file-path PATH              Path to the log file (default: /var/log/ocsinventory-agent/ocsinventory-agent.log)
 -c, --certificate CERTIFICATE         Path to the certificate file (default: null)
 -b, --bypass-certificate              Bypass certificate validation (default: false)
+    --admin-data DATA                 Administrative data, e.g. "TAG=client1;Site=Paris" (see Administrative data)
+    --tag TAG                         Adds TAG=<TAG> to the administrative data unless --admin-data sets TAG
 -s, --service                         Register the agent as a systemd service
 -n, --now                             Run the agent inventory immediately after installation
 -h, --help                            Display this help message
@@ -293,6 +299,7 @@ In this file, there are properties to configure the agent:
 | certificate        | Specify the path to the certificate file (.pem)                                                                                                                      |
 | bypass-certificate | Bypass certificate validation (default: false)                                                                                                                       |
 | execution_timeout  | Maximum time, in seconds, a single inventory command is allowed to run before being killed (default: 120). The inventory continues with the next section/field.      |
+| admin_data         | Optional. Administrative data sent with each inventory, as `Name=value` pairs separated by `;` (see Administrative data).                                            |
 
 ```text
 {
@@ -306,9 +313,29 @@ In this file, there are properties to configure the agent:
     "data_directory": "/var/lib/ocsinventory-data",
     "certificate": "/certificate path/file_name.pem",
     "bypass-certificate": false,
-    "execution_timeout": 120
+    "execution_timeout": 120,
+    "admin_data": "TAG=client1;Site=Paris"
 }
 ```
+
+### Administrative data
+
+The agent can push values for the administrative data (accountinfo) defined on the server, for example a `TAG` to tell which customer a computer belongs to. The values are given at install time and saved in the `admin_data` property of `config.json`:
+
+| Platform     | Option                                                                                         |
+|:-------------|:-----------------------------------------------------------------------------------------------|
+| Windows      | `/ADMIN_DATA="TAG=client1;Site=Paris"`                                                         |
+| Windows      | `/TAG=client1`                                                                                 |
+| Linux, macOS | `--admin-data "TAG=client1;Site=Paris"`                                                        |
+| Linux, macOS | `--tag client1`                                                                                |
+| Agent binary | `--admin_data "TAG=client1;Site=Paris"`, saved in `config.json` with `--overwrite_config true` |
+
+- Pairs are separated by `;`, the name from its value by the first `=`. Several labels of a checkbox field are separated by `,`: `Usage=Office,Dev`.
+- `/TAG` (`--tag`) adds `TAG=<value>` unless `/ADMIN_DATA` (`--admin-data`) already sets `TAG`.
+- The data is sent with every inventory. The server matches each name with an administrative data field of the *Assets* target (case ignored) and **fills the field only when it is empty**: a value changed in the console is never replaced.
+- The fields are not created by the agent: create them on the server first (none is provided by default, not even `TAG`). An unknown name or a value that is not one of the labels of a select or checkbox field is ignored and logged as a warning on the server; the inventory is accepted anyway.
+- A value cannot contain `;`, a checkbox label cannot contain `,`.
+- On Linux and macOS, the installer does not rewrite an existing `config.json`. To change the data of an installed agent, run `ocsinventory-cli --admin_data "TAG=client1" --overwrite_config true`.
 
 ### SSL
 
