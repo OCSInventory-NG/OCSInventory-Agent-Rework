@@ -9,7 +9,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/ocsinventory-cli</string>
-    <string>--service true</string>
+    <string>--service=true</string>
   </array>
 
   <key>RunAtLoad</key>
