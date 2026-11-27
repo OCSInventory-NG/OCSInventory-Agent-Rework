@@ -21,6 +21,7 @@
       - [3. Installing the Windows agent non-interactively](#3-installing-the-windows-agent-non-interactively)
       - [4. Installing the Windows agent interactively](#4-installing-the-windows-agent-interactively)
       - [5. Additionnal information for Windows installation](#5-additionnal-information-for-windows-installation)
+      - [6. MSI package for mass deployment (GPO)](#6-msi-package-for-mass-deployment-gpo)
     - [Installing the agent on MacOS](#installing-the-agent-on-macos)
       - [1. MacOS compilation](#1-macos-compilation)
       - [2. Installing the MacOS agent non-interactively](#2-installing-the-macos-agent-non-interactively)
@@ -217,6 +218,16 @@ To install the agent in interactive mode, you have to run the binary setup gener
 
 If you set service installation to true, it will be in service and named `OCSInventory-Service`. The location of this service is store at the same location as the agent installation directory.
 
+#### 6. MSI package for mass deployment (GPO)
+
+Each release also provides `OCSInventory-Agent-Setup-Windows-<tag>.msi`, for deployment with a GPO or `msiexec`. The options are given as `OCS_*` properties:
+
+```text
+msiexec /i OCSInventory-Agent-Setup-Windows-3.1.0.msi /qn OCS_URL=https://server_ip_and_port OCS_USERNAME=username OCS_PASSWORD=password OCS_TAG=client1
+```
+
+See [setup/windows/OCSInventory-Agent-MSI/README.md](setup/windows/OCSInventory-Agent-MSI/README.md) for the list of properties, upgrades and the migration from the `.exe` installer.
+
 ### Installing the agent on MacOS
 
 #### 1. MacOS compilation
@@ -326,6 +337,7 @@ The agent can push values for the administrative data (accountinfo) defined on t
 |:-------------|:-----------------------------------------------------------------------------------------------|
 | Windows      | `/ADMIN_DATA="TAG=client1;Site=Paris"`                                                         |
 | Windows      | `/TAG=client1`                                                                                 |
+| Windows MSI  | `OCS_ADMIN_DATA="TAG=client1;Site=Paris"`, `OCS_TAG=client1`                                   |
 | Linux, macOS | `--admin-data "TAG=client1;Site=Paris"`                                                        |
 | Linux, macOS | `--tag client1`                                                                                |
 | Agent binary | `--admin_data "TAG=client1;Site=Paris"`, saved in `config.json` with `--overwrite_config true` |

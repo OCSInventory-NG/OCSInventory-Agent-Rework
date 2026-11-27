@@ -55,10 +55,25 @@ jobs:
           $built = Get-ChildItem -Recurse -Path setup\windows\OCSInventory-Agent-Setup\OCSInventory-Agent-Setup -Filter *.exe | Select-Object -First 1
           Copy-Item $built.FullName "OCSInventory-Agent-Setup-Windows-${{ github.ref_name }}.exe"
 
+      # MSI for GPO deployment, see setup/windows/OCSInventory-Agent-MSI/README.md.
+      # An MSI version is numeric only: the tag suffix is dropped (3.1.0-rc1 -> 3.1.0).
+      - name: Build MSI
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ($env:TAG -notmatch '^(\d+\.\d+\.\d+)') { throw "Tag $env:TAG does not start with major.minor.build" }
+          $version = $Matches[1]
+          dotnet build setup\windows\OCSInventory-Agent-MSI\OCSInventory-Agent-MSI.wixproj -c Release --no-incremental "-p:AgentVersion=$version"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item setup\windows\OCSInventory-Agent-MSI\bin\Release\OCSInventory-Agent-Setup.msi "OCSInventory-Agent-Setup-Windows-$env:TAG.msi"
+
       - uses: actions/upload-artifact@v7
         with:
           name: windows-installer
-          path: OCSInventory-Agent-Setup-Windows-*.exe
+          path: |
+            OCSInventory-Agent-Setup-Windows-*.exe
+            OCSInventory-Agent-Setup-Windows-*.msi
 
   build-macos:
     runs-on: macos-latest
@@ -176,6 +191,7 @@ jobs:
             - https://documentation.ocsinventory-ng.org/project-overview/migration-guide
           files: |
             artifacts/windows-installer/*.exe
+            artifacts/windows-installer/*.msi
             artifacts/macos-archive/*.tar.xz
             artifacts/linux-deb-archive/*.tar.xz
             artifacts/linux-rhel-archive/*.tar.xz
