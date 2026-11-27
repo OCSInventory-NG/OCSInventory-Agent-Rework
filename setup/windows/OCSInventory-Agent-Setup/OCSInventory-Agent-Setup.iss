@@ -748,7 +748,9 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
-    if Exec('sc.exe', 'stop "OCSInventory Agent"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    { net stop waits for the service to stop, unlike sc stop: deleting a running
+      service leaves it marked for deletion, and the next installation then fails }
+    if Exec(ExpandConstant('{sys}\net.exe'), 'stop "OCSInventory Agent"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
     begin
       if Exec('sc.exe', 'delete "OCSInventory Agent"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       begin
