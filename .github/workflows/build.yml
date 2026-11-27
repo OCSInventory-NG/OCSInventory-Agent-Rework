@@ -1,0 +1,76 @@
+---
+name: Build
+
+# Checks that the agent and the installers still build, before a release tag
+# does (see release.yml, which publishes them). Nothing is published: the
+# Windows installers are kept as workflow artifacts for testing on a VM.
+"on":
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  dart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dart-lang/setup-dart@v1
+
+      - run: dart pub get
+
+      # Errors only: the existing warnings do not fail the build (yet)
+      - name: Analyze
+        run: dart analyze --no-fatal-warnings lib
+
+      - name: Build agent CLI
+        run: dart compile exe lib/app/app.dart -o ocsinventory-cli
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dart-lang/setup-dart@v1
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build service (.NET) + agent CLI (dart)
+        shell: cmd
+        run: setup\windows\build_all.bat
+
+      - name: Install Inno Setup
+        shell: cmd
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup\windows\OCSInventory-Agent-Setup\OCSInventory-Agent-Setup.iss
+
+      # AgentVersion defaults to 0.0.0 (OCSInventory-Agent-MSI.wixproj)
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          dotnet build setup\windows\OCSInventory-Agent-MSI\OCSInventory-Agent-MSI.wixproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-installers
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            setup/windows/OCSInventory-Agent-Setup/OCSInventory-Agent-Setup/*.exe
+            setup/windows/OCSInventory-Agent-MSI/bin/**/*.msi
