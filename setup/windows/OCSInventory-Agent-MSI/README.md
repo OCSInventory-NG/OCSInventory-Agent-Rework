@@ -39,6 +39,8 @@ Files:
 | `OCS_MODE`        | `/MODE=`          | `0`-`4`                | `1`                                         |                                              |
 | `OCS_LOG_LEVEL`   | `/LOG_LEVEL=`     | `0`-`4`                | `3`                                         |                                              |
 | `OCS_BYPASS_CERT` | `/BYPASS_CERT=`   | `0`/`1`/`true`/`false` | `0`                                         |                                              |
+| `OCS_ADMIN_DATA`  | `/ADMIN_DATA=`    | `Name=value;Name2=...` | —                                           | see [Administrative data](#administrative-data) |
+| `OCS_TAG`         | `/TAG=`           | text                   | —                                           | see [Administrative data](#administrative-data) |
 | `INSTALLFOLDER`   | `/DIR=`           | path                   | `[ProgramFiles64Folder]OCS Inventory Agent` |                                              |
 
 Not supported: `/SERVICE=` (the service is always installed) and `/NOW=` (the service starts the agent).
@@ -51,6 +53,20 @@ Silent mode uses the standard `msiexec` options (`/qn`).
 - First installation: the file is created from the `OCS_*` properties, defaults applying to missing ones.
 - Upgrade or reinstallation: the existing file is kept. Only the keys of the properties given on the command line are updated. `install_directory` is always updated.
 - Uninstallation: `C:\ProgramData\OCSInventory-Agent` is kept.
+- A property given empty is ignored: a value cannot be cleared from the command line (edit `config.json` instead).
+
+### Administrative data
+
+Saved in the `admin_data` key, see *Administrative data* in the main README for the format and how the server uses it.
+
+| Properties given                                | `admin_data` written                                                     |
+|-------------------------------------------------|--------------------------------------------------------------------------|
+| `OCS_ADMIN_DATA`                                | `OCS_ADMIN_DATA`, replacing the existing value                           |
+| `OCS_ADMIN_DATA` and `OCS_TAG`                  | `OCS_ADMIN_DATA` plus `TAG=<OCS_TAG>`, unless `OCS_ADMIN_DATA` sets `TAG` |
+| `OCS_TAG` only                                  | existing value with its `TAG` pair set to `OCS_TAG`, other pairs kept    |
+| none                                            | unchanged                                                                |
+
+Example: with `admin_data` set to `Site=Paris;TAG=old`, an upgrade with `OCS_TAG=client1` gives `Site=Paris;TAG=client1`.
 
 ## Service
 
@@ -82,6 +98,9 @@ The file name keeps the full tag (`OCSInventory-Agent-Setup-Windows-3.1.0-rc1.ms
 ```text
 msiexec /i OCSInventory-Agent-Setup-Windows-3.1.0.msi /qn /l*v C:\Windows\Temp\ocs-agent.log ^
 OCS_URL=https://ocs.example.org OCS_USERNAME=agent OCS_PASSWORD=secret OCS_MODE=1
+
+msiexec /i OCSInventory-Agent-Setup-Windows-3.1.0.msi /qn ^
+OCS_URL=https://ocs.example.org OCS_ADMIN_DATA="Site=Paris;Usage=Office,Dev" OCS_TAG=client1
 
 msiexec /i OCSInventory-Agent-Setup-Windows-3.1.0.msi /qn TRANSFORMS=ocs-agent.mst
 

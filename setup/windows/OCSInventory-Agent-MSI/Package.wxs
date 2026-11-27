@@ -27,6 +27,8 @@
     <Property Id="OCS_MODE" Secure="yes" />
     <Property Id="OCS_LOG_LEVEL" Secure="yes" />
     <Property Id="OCS_BYPASS_CERT" Secure="yes" />
+    <Property Id="OCS_ADMIN_DATA" Secure="yes" />
+    <Property Id="OCS_TAG" Secure="yes" />
     <!-- Holds the password while passed to the deferred custom action -->
     <Property Id="WriteConfig" Hidden="yes" />
 
@@ -48,6 +50,7 @@
       <Directory Id="INSTALLFOLDER" Name="OCS Inventory Agent" />
     </StandardDirectory>
     <StandardDirectory Id="WindowsFolder" />
+    <StandardDirectory Id="ProgramMenuFolder" />
 
     <Feature Id="Main">
       <ComponentGroupRef Id="AgentComponents" />
@@ -91,7 +94,15 @@
   <Fragment>
     <ComponentGroup Id="AgentComponents" Directory="INSTALLFOLDER">
       <Component>
-        <File Source="$(PayloadDir)\OCSInventory-Agent\ocsinventory-agent.exe" />
+        <File Source="$(PayloadDir)\OCSInventory-Agent\ocsinventory-agent.exe" KeyPath="yes">
+          <!-- Same Start menu entry as the Inno Setup installer ([Icons]) -->
+          <Shortcut Id="AgentStartMenuShortcut"
+                    Directory="ProgramMenuFolder"
+                    Name="OCS Inventory Agent"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="OCSInventory.ico"
+                    Advertise="no" />
+        </File>
       </Component>
 
       <Component>

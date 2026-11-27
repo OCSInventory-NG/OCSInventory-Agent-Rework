@@ -17,6 +17,8 @@ namespace OCSInventoryCustomActions
             "OCS_MODE",
             "OCS_LOG_LEVEL",
             "OCS_BYPASS_CERT",
+            "OCS_ADMIN_DATA",
+            "OCS_TAG",
             "INSTALLFOLDER",
         };
 
@@ -81,6 +83,9 @@ namespace OCSInventoryCustomActions
                 Directory.CreateDirectory(dataDir);
                 config = DefaultConfig(ToSlashes(dataDir));
             }
+
+            // Needs the existing config: OCS_TAG alone updates its admin_data
+            AddAdminData(session, updates, data, config);
 
             foreach (var update in updates)
             {
@@ -175,6 +180,81 @@ namespace OCSInventoryCustomActions
                     session.Log(property + " must be 0, 1, true or false, got '" + value + "'.");
                     return false;
             }
+        }
+
+        // admin_data is "Name=value;Name2=value2", parsed by the agent (admin_data.dart).
+        // OCS_ADMIN_DATA replaces it, plus TAG=<OCS_TAG> unless it already sets TAG
+        // (as /ADMIN_DATA and /TAG of the .exe). OCS_TAG alone only sets the TAG
+        // pair of the existing value, keeping the other pairs.
+        private static void AddAdminData(
+            Session session,
+            Dictionary<string, object> updates,
+            CustomActionData data,
+            Dictionary<string, object> config
+        )
+        {
+            var adminData = (data["OCS_ADMIN_DATA"] ?? "").Trim();
+            var tag = (data["OCS_TAG"] ?? "").Trim();
+
+            if (adminData.Length > 0)
+            {
+                if (tag.Length > 0 && !AdminDataSetsTag(adminData))
+                {
+                    adminData = adminData + ";TAG=" + tag;
+                }
+            }
+            else if (tag.Length > 0)
+            {
+                object existing;
+                config.TryGetValue("admin_data", out existing);
+                adminData = WithTag(existing as string ?? "", tag);
+            }
+            else
+            {
+                return;
+            }
+
+            updates["admin_data"] = adminData;
+            session.Log("Administrative data: " + adminData);
+        }
+
+        private static bool AdminDataSetsTag(string adminData)
+        {
+            foreach (var segment in adminData.Split(';'))
+            {
+                if (IsTagPair(segment))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // adminData without its TAG pairs and empty segments, then TAG=<tag>
+        private static string WithTag(string adminData, string tag)
+        {
+            var pairs = new List<string>();
+            foreach (var segment in adminData.Split(';'))
+            {
+                if (segment.Trim().Length > 0 && !IsTagPair(segment))
+                {
+                    pairs.Add(segment.Trim());
+                }
+            }
+            pairs.Add("TAG=" + tag);
+            return string.Join(";", pairs);
+        }
+
+        // Name compared case-insensitively, as the agent and the server do
+        private static bool IsTagPair(string segment)
+        {
+            var index = segment.IndexOf('=');
+            return index >= 0
+                && string.Equals(
+                    segment.Substring(0, index).Trim(),
+                    "TAG",
+                    StringComparison.OrdinalIgnoreCase
+                );
         }
 
         // The agent and the Inno Setup installer use forward slashes in config.json
