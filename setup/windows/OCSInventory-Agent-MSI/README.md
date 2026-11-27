@@ -52,6 +52,7 @@ Silent mode uses the standard `msiexec` options (`/qn`).
 
 - First installation: the file is created from the `OCS_*` properties, defaults applying to missing ones.
 - Upgrade or reinstallation: the existing file is kept. Only the keys of the properties given on the command line are updated. `install_directory` is always updated.
+- Invalid existing file (empty, broken JSON, not a JSON object): saved as `config.json.bak`, then recreated as on a first installation, with a warning in the log. Without `OCS_URL`, the agent then has no server url: give it again.
 - Uninstallation: `C:\ProgramData\OCSInventory-Agent` is kept.
 - A property given empty is ignored: a value cannot be cleared from the command line (edit `config.json` instead).
 

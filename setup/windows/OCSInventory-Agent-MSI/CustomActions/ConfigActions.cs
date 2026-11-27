@@ -65,22 +65,33 @@ namespace OCSInventoryCustomActions
             var configPath = Path.Combine(dataDir, "config.json");
             var serializer = new JavaScriptSerializer();
 
-            Dictionary<string, object> config;
+            Dictionary<string, object> config = null;
             if (File.Exists(configPath))
             {
                 session.Log("Updating configuration file " + configPath);
-                config = serializer.Deserialize<Dictionary<string, object>>(
-                    File.ReadAllText(configPath)
-                );
+                config = ReadConfig(session, serializer, configPath);
                 if (config == null)
                 {
-                    throw new InvalidDataException(configPath + " does not contain a JSON object.");
+                    // Not a failure: a GPO deployment would fail silently on every
+                    // machine with a broken file. It is kept aside and recreated.
+                    var backupPath = configPath + ".bak";
+                    File.Copy(configPath, backupPath, true);
+                    session.Log(
+                        "Warning: "
+                            + configPath
+                            + " is not a valid configuration file, saved as "
+                            + backupPath
+                            + " and recreated with the default values."
+                    );
                 }
             }
             else
             {
                 session.Log("Creating configuration file " + configPath);
                 Directory.CreateDirectory(dataDir);
+            }
+            if (config == null)
+            {
                 config = DefaultConfig(ToSlashes(dataDir));
             }
 
@@ -94,8 +105,36 @@ namespace OCSInventoryCustomActions
             // Key names only: values may contain the password
             session.Log("Configuration keys set: " + string.Join(", ", updates.Keys));
 
+            object url;
+            if (!config.TryGetValue("url", out url) || string.IsNullOrEmpty(url as string))
+            {
+                session.Log("Warning: no server url in the configuration, set OCS_URL.");
+            }
+
             File.WriteAllText(configPath, serializer.Serialize(config));
             return ActionResult.Success;
+        }
+
+        // The JSON object of config.json, or null when the file is empty or invalid
+        private static Dictionary<string, object> ReadConfig(
+            Session session,
+            JavaScriptSerializer serializer,
+            string configPath
+        )
+        {
+            try
+            {
+                return serializer.Deserialize<Dictionary<string, object>>(
+                    File.ReadAllText(configPath)
+                );
+            }
+            catch (Exception e)
+                when (e is ArgumentException || e is InvalidOperationException)
+            {
+                // Invalid JSON, or JSON that is not an object (array, string...)
+                session.Log("Cannot read " + configPath + ": " + e.Message);
+                return null;
+            }
         }
 
         // Same content as the file written by the Inno Setup installer
@@ -207,6 +246,11 @@ namespace OCSInventoryCustomActions
             {
                 object existing;
                 config.TryGetValue("admin_data", out existing);
+                if (existing != null && !(existing is string))
+                {
+                    // Ignored by the agent anyway (admin_data must be a string)
+                    session.Log("Warning: admin_data is not a string in config.json, replaced.");
+                }
                 adminData = WithTag(existing as string ?? "", tag);
             }
             else
