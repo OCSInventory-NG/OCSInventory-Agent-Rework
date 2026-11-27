@@ -26,7 +26,7 @@ The package `OCSInventory-Agent-Setup.msi` is created under `setup\windows\OCSIn
 Files:
 
 - `Package.wxs`: files, service, upgrades, launch conditions.
-- `CustomActions/`: custom action (C#, .NET Framework) writing `config.json`.
+- `CustomActions/`: custom actions (C#, .NET Framework) writing `config.json` and removing an `.exe` installation.
 
 ## Public properties
 
@@ -79,6 +79,8 @@ Example: with `admin_data` set to `Site=Paris;TAG=old`, an upgrade with `OCS_TAG
 - A newer MSI replaces the installed one: a single "OCS Inventory Agent" entry remains.
 - An older MSI is refused (downgrade).
 - An existing installation made with the `.exe` installer is uninstalled silently; `config.json` is kept.
+  The service is stopped first, then the installation waits (up to 2 minutes each) for the `.exe` uninstallation to end and for the service to be deleted.
+  A service kept "marked for deletion" by an open handle (`services.msc`...) makes the installation fail, see [Exit codes](#exit-codes).
 
 ### Version
 
@@ -114,6 +116,7 @@ msiexec /x OCSInventory-Agent-Setup-Windows-3.1.0.msi /qn
 | Success                                            | `0`                                                                   |
 | Success, reboot required                           | `3010`                                                                |
 | Launch condition not met (no `OCS_URL`, downgrade) | `1603`, with the reason in the log                                    |
+| `.exe` installation not removed (service still present, uninstaller timeout) | `1603`, with the reason in the log: close `services.msc` or reboot, then retry |
 | 32-bit Windows                                     | `1633` (the package is x64 only, refused by Windows Installer itself) |
 
 ## Open points

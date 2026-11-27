@@ -38,6 +38,10 @@
       </DirectorySearch>
     </Property>
 
+    <!-- Passed to the UninstallInno custom action -->
+    <Property Id="INNO_UNINSTALL_KEY" Value="$(InnoUninstallKey)" />
+    <Property Id="AGENT_SERVICE_NAME" Value="$(ServiceName)" />
+
     <Property Id="INNO_UNINSTALL_STRING">
       <RegistrySearch Root="HKLM" Key="$(InnoUninstallKey)" Name="UninstallString" Type="raw" Bitness="always64" />
     </Property>
@@ -49,7 +53,6 @@
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="OCS Inventory Agent" />
     </StandardDirectory>
-    <StandardDirectory Id="WindowsFolder" />
     <StandardDirectory Id="ProgramMenuFolder" />
 
     <Feature Id="Main">
@@ -59,10 +62,16 @@
     <Binary Id="CustomActionsBinary"
             SourceFile="$(OCSInventoryCustomActions.TargetDir)$(OCSInventoryCustomActions.TargetName).CA.dll" />
 
-    <!-- Silent removal of an installation made with the Inno Setup .exe -->
+    <!-- Silent removal of an installation made with the Inno Setup .exe: stops the
+         service, runs the uninstaller and waits for the service to be deleted -->
+    <CustomAction Id="PrepareUninstallInno"
+                  BinaryRef="CustomActionsBinary"
+                  DllEntry="PrepareUninstallInno"
+                  Execute="immediate"
+                  Return="check" />
     <CustomAction Id="UninstallInno"
-                  Directory="WindowsFolder"
-                  ExeCommand="[INNO_UNINSTALL_STRING] /VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+                  BinaryRef="CustomActionsBinary"
+                  DllEntry="UninstallInno"
                   Execute="deferred"
                   Impersonate="no"
                   Return="check" />
@@ -82,6 +91,8 @@
                   Return="check" />
 
     <InstallExecuteSequence>
+      <Custom Action="PrepareUninstallInno" Before="UninstallInno"
+              Condition="INNO_UNINSTALL_STRING AND NOT REMOVE~=&quot;ALL&quot;" />
       <Custom Action="UninstallInno" After="InstallInitialize"
               Condition="INNO_UNINSTALL_STRING AND NOT REMOVE~=&quot;ALL&quot;" />
       <Custom Action="PrepareConfig" Before="WriteConfig"
