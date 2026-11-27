@@ -105,15 +105,23 @@
   <Fragment>
     <ComponentGroup Id="AgentComponents" Directory="INSTALLFOLDER">
       <Component>
-        <File Source="$(PayloadDir)\OCSInventory-Agent\ocsinventory-agent.exe" KeyPath="yes">
-          <!-- Same Start menu entry as the Inno Setup installer ([Icons]) -->
-          <Shortcut Id="AgentStartMenuShortcut"
-                    Directory="ProgramMenuFolder"
-                    Name="OCS Inventory Agent"
-                    WorkingDirectory="INSTALLFOLDER"
-                    Icon="OCSInventory.ico"
-                    Advertise="no" />
-        </File>
+        <File Id="AgentExe" Source="$(PayloadDir)\OCSInventory-Agent\ocsinventory-agent.exe" />
+      </Component>
+
+      <!-- Same Start menu entry as the Inno Setup installer ([Icons]). A non-advertised
+           shortcut needs its own component with an HKCU KeyPath (ICE43, ICE57). -->
+      <Component Id="AgentStartMenuShortcut" Directory="ProgramMenuFolder">
+        <Shortcut Id="AgentStartMenuShortcut"
+                  Name="OCS Inventory Agent"
+                  Target="[#AgentExe]"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="OCSInventory.ico" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\OCS Inventory\OCS Inventory Agent"
+                       Name="StartMenuShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
       </Component>
 
       <Component>
