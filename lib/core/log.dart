@@ -137,8 +137,8 @@ class Logger {
         print(txt);
       }
     } catch (e) {
-      error(this.runtimeType.toString(),
-          sprintf("Error writing to log: %s", [e.toString().trim()]));
+      stderr.writeln(
+          "[$date] [ERROR] [${this.runtimeType.toString()}] Error writing to log: ${e.toString().trim()}");
     }
   }
 

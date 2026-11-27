@@ -54,8 +54,11 @@ class BaseLinux {
         .split("\n");
     Map<String, String> osRelease = {};
     for (final info in getOSRelease) {
-      RegExp exp = RegExp(r'(?<key>[\S]+?)="(?<value>[\S\s]+?)"');
-      RegExpMatch? match = exp.firstMatch(info);
+      // Values are quoted only when they need it, see os-release(5):
+      // Fedora writes VERSION_ID=44 and Arch Linux writes ID=arch
+      RegExp exp = RegExp(
+          r'^(?<key>[A-Z0-9_]+)=(?<quote>["\x27]?)(?<value>.*)\k<quote>$');
+      RegExpMatch? match = exp.firstMatch(info.trim());
       if (match != null) {
         final entry = <String, String>{
           match.namedGroup("key").toString():
@@ -124,17 +127,18 @@ class BaseLinux {
 
     dynamic body = ({
       "name": name,
-      "description": osRelease["PRETTY_NAME"].toString() +
-          " " +
-          hostnamectl["Architecture"].toString(),
+      // A missing value must not be sent as "null": os-release(5) defaults
+      // NAME and PRETTY_NAME to "Linux", rolling releases such as Arch Linux
+      // have no VERSION_ID, and hostnamectl is missing without systemd
+      "description": ((osRelease["PRETTY_NAME"] ?? "Linux") +
+              " " +
+              (hostnamectl["Architecture"] ?? ""))
+          .trim(),
       "serial": await _getSerialNumber(name, macAddress),
-      "osname": osRelease["NAME"].toString(),
-      "osversion": osRelease["VERSION_ID"].toString(),
+      "osname": osRelease["NAME"] ?? "Linux",
+      "osversion": osRelease["VERSION_ID"] ?? "",
       "uuid": await _getUUID(),
-      "srcip": (await commands.processTarget(
-              "BASH", "hostname -I", logType, "IP ADDRESS"))["value"]
-          .toString()
-          .split(" ")[0],
+      "srcip": await _getIPAddress(),
       "srcmac": macAddressList,
       "domain": (await commands.processTarget(
           "BASH", "hostname -d", logType, "DOMAIN"))["value"],
@@ -152,6 +156,27 @@ class BaseLinux {
       "BASH", "which $cmd", logType, "CHECK COMMAND",
     );
     return result["value"] != null && result["value"].toString().isNotEmpty;
+  }
+
+  /// Returns the first global address of the host, IPv4 before IPv6.
+  ///
+  /// hostname -I gave this address on Debian and RHEL based systems only:
+  /// the hostname of inetutils (Arch Linux) and of BusyBox has no -I
+  /// option. ip is already required to find the MAC addresses, and its
+  /// global scope leaves out loopback and link-local addresses, as -I does.
+  Future<String> _getIPAddress() async {
+    final result = await commands.processTarget(
+      "BASH", "ip -o addr show scope global", logType, "IP ADDRESS",
+    );
+    final String addresses = result["value"].toString();
+    for (final family in ["inet", "inet6"]) {
+      final match = RegExp(r'\s' + family + r' (?<ip>[0-9a-fA-F.:]+)/')
+          .firstMatch(addresses);
+      if (match != null) {
+        return match.namedGroup("ip")!;
+      }
+    }
+    return "";
   }
 
   /// Detects whether the process is running inside a container (LXC, Docker,
