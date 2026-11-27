@@ -173,7 +173,10 @@ namespace OCSInventoryCustomActions
         private static bool UninstallKeyExists(string uninstallKey)
         {
             using (
-                var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64)
+                var hklm = RegistryKey.OpenBaseKey(
+                    RegistryHive.LocalMachine,
+                    RegistryView.Registry64
+                )
             )
             using (var key = hklm.OpenSubKey(uninstallKey))
             {

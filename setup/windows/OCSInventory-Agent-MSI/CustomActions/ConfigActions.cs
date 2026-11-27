@@ -128,8 +128,7 @@ namespace OCSInventoryCustomActions
                     File.ReadAllText(configPath)
                 );
             }
-            catch (Exception e)
-                when (e is ArgumentException || e is InvalidOperationException)
+            catch (Exception e) when (e is ArgumentException || e is InvalidOperationException)
             {
                 // Invalid JSON, or JSON that is not an object (array, string...)
                 session.Log("Cannot read " + configPath + ": " + e.Message);

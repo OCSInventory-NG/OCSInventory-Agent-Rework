@@ -30,18 +30,18 @@ Files:
 
 ## Public properties
 
-| Property          | `.exe` equivalent | Values                 | Default                                     | Notes                                        |
-|-------------------|-------------------|------------------------|---------------------------------------------|----------------------------------------------|
-| `OCS_URL`         | `/URL=`           | server URL             | —                                           | required unless `config.json` already exists |
-| `OCS_USERNAME`    | `/USERNAME=`      | text                   | —                                           | `USERNAME` is reserved by Windows Installer  |
-| `OCS_PASSWORD`    | `/PASSWORD=`      | text                   | —                                           | hidden, never written to the MSI log         |
-| `OCS_CERTIFICATE` | `/CERTIFICATE=`   | path                   | —                                           | the file must exist on the machine           |
-| `OCS_MODE`        | `/MODE=`          | `0`-`4`                | `1`                                         |                                              |
-| `OCS_LOG_LEVEL`   | `/LOG_LEVEL=`     | `0`-`4`                | `3`                                         |                                              |
-| `OCS_BYPASS_CERT` | `/BYPASS_CERT=`   | `0`/`1`/`true`/`false` | `0`                                         |                                              |
+| Property          | `.exe` equivalent | Values                 | Default                                     | Notes                                           |
+|-------------------|-------------------|------------------------|---------------------------------------------|-------------------------------------------------|
+| `OCS_URL`         | `/URL=`           | server URL             | —                                           | required unless `config.json` already exists    |
+| `OCS_USERNAME`    | `/USERNAME=`      | text                   | —                                           | `USERNAME` is reserved by Windows Installer     |
+| `OCS_PASSWORD`    | `/PASSWORD=`      | text                   | —                                           | hidden, never written to the MSI log            |
+| `OCS_CERTIFICATE` | `/CERTIFICATE=`   | path                   | —                                           | the file must exist on the machine              |
+| `OCS_MODE`        | `/MODE=`          | `0`-`4`                | `1`                                         |                                                 |
+| `OCS_LOG_LEVEL`   | `/LOG_LEVEL=`     | `0`-`4`                | `3`                                         |                                                 |
+| `OCS_BYPASS_CERT` | `/BYPASS_CERT=`   | `0`/`1`/`true`/`false` | `0`                                         |                                                 |
 | `OCS_ADMIN_DATA`  | `/ADMIN_DATA=`    | `Name=value;Name2=...` | —                                           | see [Administrative data](#administrative-data) |
 | `OCS_TAG`         | `/TAG=`           | text                   | —                                           | see [Administrative data](#administrative-data) |
-| `INSTALLFOLDER`   | `/DIR=`           | path                   | `[ProgramFiles64Folder]OCS Inventory Agent` |                                              |
+| `INSTALLFOLDER`   | `/DIR=`           | path                   | `[ProgramFiles64Folder]OCS Inventory Agent` |                                                 |
 
 Not supported: `/SERVICE=` (the service is always installed) and `/NOW=` (the service starts the agent).
 Silent mode uses the standard `msiexec` options (`/qn`).
@@ -60,12 +60,12 @@ Silent mode uses the standard `msiexec` options (`/qn`).
 
 Saved in the `admin_data` key, see *Administrative data* in the main README for the format and how the server uses it.
 
-| Properties given                                | `admin_data` written                                                     |
-|-------------------------------------------------|--------------------------------------------------------------------------|
-| `OCS_ADMIN_DATA`                                | `OCS_ADMIN_DATA`, replacing the existing value                           |
-| `OCS_ADMIN_DATA` and `OCS_TAG`                  | `OCS_ADMIN_DATA` plus `TAG=<OCS_TAG>`, unless `OCS_ADMIN_DATA` sets `TAG` |
-| `OCS_TAG` only                                  | existing value with its `TAG` pair set to `OCS_TAG`, other pairs kept    |
-| none                                            | unchanged                                                                |
+| Properties given               | `admin_data` written                                                      |
+|--------------------------------|---------------------------------------------------------------------------|
+| `OCS_ADMIN_DATA`               | `OCS_ADMIN_DATA`, replacing the existing value                            |
+| `OCS_ADMIN_DATA` and `OCS_TAG` | `OCS_ADMIN_DATA` plus `TAG=<OCS_TAG>`, unless `OCS_ADMIN_DATA` sets `TAG` |
+| `OCS_TAG` only                 | existing value with its `TAG` pair set to `OCS_TAG`, other pairs kept     |
+| none                           | unchanged                                                                 |
 
 Example: with `admin_data` set to `Site=Paris;TAG=old`, an upgrade with `OCS_TAG=client1` gives `Site=Paris;TAG=client1`.
 
@@ -112,13 +112,13 @@ msiexec /x OCSInventory-Agent-Setup-Windows-3.1.0.msi /qn
 
 ## Exit codes
 
-| Case                                               | Code                                                                  |
-|----------------------------------------------------|-----------------------------------------------------------------------|
-| Success                                            | `0`                                                                   |
-| Success, reboot required                           | `3010`                                                                |
-| Launch condition not met (no `OCS_URL`, downgrade) | `1603`, with the reason in the log                                    |
+| Case                                                                         | Code                                                                           |
+|------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| Success                                                                      | `0`                                                                            |
+| Success, reboot required                                                     | `3010`                                                                         |
+| Launch condition not met (no `OCS_URL`, downgrade)                           | `1603`, with the reason in the log                                             |
 | `.exe` installation not removed (service still present, uninstaller timeout) | `1603`, with the reason in the log: close `services.msc` or reboot, then retry |
-| 32-bit Windows                                     | `1633` (the package is x64 only, refused by Windows Installer itself) |
+| 32-bit Windows                                                               | `1633` (the package is x64 only, refused by Windows Installer itself)          |
 
 ## Open points
 
